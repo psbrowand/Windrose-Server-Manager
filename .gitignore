@@ -1,0 +1,14 @@
+# Windrose dedicated server files (copied from Steam, not part of the manager)
+R5/
+Engine/
+WindroseServer.exe
+StartServerForeground.bat
+Manifest_*.txt
+
+# Generated at runtime
+Backups/
+player_history.txt
+install.log
+
+# Screenshots for README (add manually after taking them)
+assets/
