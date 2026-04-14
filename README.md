@@ -2,8 +2,6 @@
 
 A local GUI application for running and managing a [Windrose](https://store.steampowered.com/app/3041230/Windrose/) dedicated server on Windows.
 
-![Dashboard](assets/screenshot-dashboard.png)
-
 ---
 
 ## Features
