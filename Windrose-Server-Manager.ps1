@@ -1,7 +1,7 @@
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-$ServerDir   = "C:\Game-Servers\Windrose"
+$ServerDir   = $PSScriptRoot
 $ServerExe   = "$ServerDir\WindroseServer.exe"
 $ConfigPath  = "$ServerDir\R5\ServerDescription.json"
 $LogPath     = "$ServerDir\R5\Saved\Logs\R5.log"
@@ -541,7 +541,7 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                   <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
                 <TextBox x:Name="TxtInstallDest" Grid.Column="0" Style="{StaticResource DarkInput}"
-                         Text="C:\Game-Servers\Windrose" Margin="0,0,4,0"/>
+                         Margin="0,0,4,0"/>
                 <Button x:Name="BtnBrowseDest" Grid.Column="1" Content="Browse..."
                         Background="#2A3E55" Style="{StaticResource SmallBtn}"/>
               </Grid>
@@ -1518,6 +1518,7 @@ $script:logTailTimer.Interval = [TimeSpan]::FromSeconds(3)
 $script:logTailTimer.Add_Tick({ Update-LogViewer })
 
 # ---- INITIAL STATE ----
+$TxtInstallDest.Text = $ServerDir
 Read-ServerConfig
 Read-WorldConfig
 Load-History
