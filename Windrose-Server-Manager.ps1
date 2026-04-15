@@ -428,7 +428,8 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
       </Grid>
     </Border>
     <!-- TABS -->
-    <TabControl x:Name="MainTabs" Grid.Row="1" Margin="0">
+    <Grid Grid.Row="1">
+      <TabControl x:Name="MainTabs" Margin="0">
       <!-- TAB 1: DASHBOARD -->
       <TabItem Header="Dashboard">
         <Grid Margin="12">
@@ -1043,6 +1044,10 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
         </ScrollViewer>
       </TabItem>
     </TabControl>
+      <TextBlock x:Name="TxtVersionLink" Text="Version: 1.23" FontSize="11" Foreground="#607080"
+                 VerticalAlignment="Top" HorizontalAlignment="Right" Margin="0,7,12,0"
+                 Cursor="Hand" TextDecorations="Underline"/>
+    </Grid>
     <!-- FOOTER BUTTONS -->
     <UniformGrid Grid.Row="2" Rows="1" Columns="5" Margin="8,4">
       <Button x:Name="BtnStart" Content="Start" Background="#1A6B3A" Style="{StaticResource BaseBtn}"/>
@@ -1195,6 +1200,7 @@ $BtnFolder       = Ctrl 'BtnFolder'
 $TxtLog          = Ctrl 'TxtLog'
 $BtnCancelRestart= Ctrl 'BtnCancelRestart'
 $MainTabs        = Ctrl 'MainTabs'
+$TxtVersionLink  = Ctrl 'TxtVersionLink'
 
 # Script-scoped state
 $script:ServerProc      = $null
@@ -2610,6 +2616,11 @@ $BtnCopyPorts.Add_Click({
 
 $BtnGoToDashboard.Add_Click({ $MainTabs.SelectedIndex = 0 })
 
+# Version link - navigates to Tools tab (index 4) where update check lives
+$TxtVersionLink.Add_MouseLeftButtonUp({ $MainTabs.SelectedIndex = 4 })
+$TxtVersionLink.Add_MouseEnter({ $TxtVersionLink.Foreground = $script:BrushDonateHover })
+$TxtVersionLink.Add_MouseLeave({ $TxtVersionLink.Foreground = $script:BrushDonateNormal })
+
 # ---- WATCHDOG TIMER ----
 $script:watchdogTick = 0
 $script:watchdog = [System.Windows.Threading.DispatcherTimer]::new()
@@ -2661,6 +2672,7 @@ $script:logTailTimer.Add_Tick({ Update-LogViewer })
 # ---- INITIAL STATE ----
 $TxtInstallDest.Text = $ServerDir
 $TxtCurrentVersion.Text = "Current version: $AppVersion"
+$TxtVersionLink.Text = "Version: $AppVersion"
 
 $BtnRefreshPlayers.Add_Click({
     if (Get-ServerProcess) { Refresh-PlayerList }
