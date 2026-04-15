@@ -1,7 +1,27 @@
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-$AppVersion  = 6
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class WinHelper {
+    public delegate bool EnumWindowsProc(IntPtr hWnd, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern bool EnumWindows(EnumWindowsProc proc, IntPtr lParam);
+    [DllImport("user32.dll")] public static extern int GetWindowThreadProcessId(IntPtr hWnd, out int processId);
+    [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
+    [DllImport("user32.dll")] public static extern bool IsWindowVisible(IntPtr hWnd);
+    public static void HideProcessWindows(int pid) {
+        EnumWindows((hWnd, lParam) => {
+            int windowPid = 0;
+            GetWindowThreadProcessId(hWnd, out windowPid);
+            if (windowPid == pid && IsWindowVisible(hWnd)) ShowWindow(hWnd, 0);
+            return true;
+        }, IntPtr.Zero);
+    }
+}
+"@
+
+$AppVersion  = 7
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $ServerDir      = $PSScriptRoot
@@ -67,6 +87,24 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Padding" Value="6,4"/>
       <Setter Property="FontSize" Value="13"/>
+      <Setter Property="ItemContainerStyle">
+        <Setter.Value>
+          <Style TargetType="ComboBoxItem">
+            <Setter Property="Background" Value="#1A2736"/>
+            <Setter Property="Foreground" Value="#D0D8E4"/>
+            <Setter Property="Padding" Value="8,5"/>
+            <Style.Triggers>
+              <Trigger Property="IsMouseOver" Value="True">
+                <Setter Property="Background" Value="#1E3348"/>
+              </Trigger>
+              <Trigger Property="IsSelected" Value="True">
+                <Setter Property="Background" Value="#1E3348"/>
+                <Setter Property="Foreground" Value="#D4A843"/>
+              </Trigger>
+            </Style.Triggers>
+          </Style>
+        </Setter.Value>
+      </Setter>
     </Style>
     <Style x:Key="SectionHead" TargetType="TextBlock">
       <Setter Property="Foreground" Value="#D4A843"/>
@@ -787,34 +825,59 @@ function Read-WorldConfig {
         $wPath = Find-WorldConfig
         if (-not $wPath) { return }
         $j = Get-Content $wPath -Raw | ConvertFrom-Json
-        $preset = "Medium"
-        if ($j.PSObject.Properties['Preset']) { $preset = $j.Preset }
+
+        $wd = $j.WorldDescription
+        if (-not $wd) { return }
+
+        $preset = "Custom"
+        if ($wd.PSObject.Properties['WorldPresetType']) { $preset = $wd.WorldPresetType }
+
         $matchedItem = $null
         foreach ($item in $CfgPreset.Items) {
             if ($item.Content -eq $preset) { $matchedItem = $item; break }
         }
         if ($matchedItem) { $CfgPreset.SelectedItem = $matchedItem }
-        if ($preset -eq "Custom") {
-            $PanelCustom.Visibility = "Visible"
-            $map = @{
-                'MobHealthMultiplier'  = $SlMobHealth
-                'MobDamageMultiplier'  = $SlMobDamage
-                'ShipHealthMultiplier' = $SlShipHealth
-                'ShipDamageMultiplier' = $SlShipDamage
-                'BoardingMultiplier'   = $SlBoarding
-                'CoopStatsMultiplier'  = $SlCoopStats
-                'CoopShipMultiplier'   = $SlCoopShip
+        if ($preset -eq "Custom") { $PanelCustom.Visibility = "Visible" }
+
+        $ws = $wd.WorldSettings
+        if (-not $ws) { return }
+
+        # Float parameters — keys are JSON strings like '{"TagName": "WDS.Parameter.MobHealthMultiplier"}'
+        $fp = $ws.FloatParameters
+        if ($fp) {
+            $floatMap = [ordered]@{
+                '{"TagName": "WDS.Parameter.MobHealthMultiplier"}'              = $SlMobHealth
+                '{"TagName": "WDS.Parameter.MobDamageMultiplier"}'              = $SlMobDamage
+                '{"TagName": "WDS.Parameter.ShipsHealthMultiplier"}'            = $SlShipHealth
+                '{"TagName": "WDS.Parameter.ShipsDamageMultiplier"}'            = $SlShipDamage
+                '{"TagName": "WDS.Parameter.BoardingDifficultyMultiplier"}'     = $SlBoarding
+                '{"TagName": "WDS.Parameter.Coop.StatsCorrectionModifier"}'    = $SlCoopStats
+                '{"TagName": "WDS.Parameter.Coop.ShipStatsCorrectionModifier"}' = $SlCoopShip
             }
-            foreach ($key in $map.Keys) {
-                if ($j.PSObject.Properties[$key]) {
-                    $map[$key].Value = [double]$j.$key
-                }
+            foreach ($key in $floatMap.Keys) {
+                $prop = $fp.PSObject.Properties[$key]
+                if ($prop) { $floatMap[$key].Value = [double]$prop.Value }
             }
-            if ($j.PSObject.Properties['CoopQuests'])    { $CfgCoopQuests.IsChecked  = [bool]$j.CoopQuests }
-            if ($j.PSObject.Properties['EasyExplore'])   { $CfgEasyExplore.IsChecked = [bool]$j.EasyExplore }
-            if ($j.PSObject.Properties['CombatDifficulty']) {
+        }
+
+        # Bool parameters
+        $bp = $ws.BoolParameters
+        if ($bp) {
+            $prop = $bp.PSObject.Properties['{"TagName": "WDS.Parameter.Coop.SharedQuests"}']
+            if ($prop) { $CfgCoopQuests.IsChecked  = [bool]$prop.Value }
+            $prop = $bp.PSObject.Properties['{"TagName": "WDS.Parameter.EasyExplore"}']
+            if ($prop) { $CfgEasyExplore.IsChecked = [bool]$prop.Value }
+        }
+
+        # Tag parameters — combat difficulty
+        $tp = $ws.TagParameters
+        if ($tp) {
+            $prop = $tp.PSObject.Properties['{"TagName": "WDS.Parameter.CombatDifficulty"}']
+            if ($prop) {
+                $tagName = $prop.Value.TagName  # e.g. "WDS.Parameter.CombatDifficulty.Normal"
+                $short   = $tagName -replace '^.*\.CombatDifficulty\.', ''  # "Normal"
                 foreach ($item in $CfgCombatDiff.Items) {
-                    if ($item.Content -eq $j.CombatDifficulty) { $CfgCombatDiff.SelectedItem = $item; break }
+                    if ($item.Content -eq $short) { $CfgCombatDiff.SelectedItem = $item; break }
                 }
             }
         }
@@ -1103,21 +1166,34 @@ function Invoke-RestartWithCountdown($actionBlock) {
 
 function Start-ServerProcess {
     $psi = [Diagnostics.ProcessStartInfo]::new()
-    # Launch the shipping exe directly so we can suppress its console window.
-    # The thin launcher (WindroseServer.exe) spawns a cmd.exe child which
-    # ignores CreateNoWindow; going direct avoids that entirely.
+    # Launch the shipping exe directly — avoids cmd.exe child spawned by WindroseServer.exe.
     if (Test-Path $ServerExeDirect) {
         $psi.FileName = $ServerExeDirect
     } else {
         $psi.FileName = $ServerExe
     }
-    $psi.Arguments             = ""
+    # -log enables UE5's stdin console command processing (AllocConsole).
+    # We hide the window it creates via Win32 shortly after launch.
+    $psi.Arguments             = "-log"
     $psi.WorkingDirectory      = $ServerDir
     $psi.UseShellExecute       = $false
     $psi.RedirectStandardInput = $true
     $psi.CreateNoWindow        = $true
     $script:ServerProc  = [Diagnostics.Process]::Start($psi)
     $script:ServerStdin = $script:ServerProc.StandardInput
+
+    # UE5 calls AllocConsole() during startup which creates a visible window.
+    # Poll for 12 seconds and hide any window owned by the server process.
+    $procId = $script:ServerProc.Id
+    $script:hideAttempts = 0
+    $hideTimer = [System.Windows.Threading.DispatcherTimer]::new()
+    $hideTimer.Interval = [TimeSpan]::FromSeconds(1)
+    $hideTimer.Add_Tick({
+        $script:hideAttempts++
+        try { [WinHelper]::HideProcessWindows($procId) } catch {}
+        if ($script:hideAttempts -ge 12) { $hideTimer.Stop() }
+    })
+    $hideTimer.Start()
 }
 
 $script:doRestart = {
@@ -1310,27 +1386,67 @@ $BtnSaveConfig.Add_Click({
         $rootObj | ConvertTo-Json -Depth 5 | Set-Content $ConfigPath -Encoding UTF8
         $TxtServerName.Text = $CfgName.Text
 
-        # World config
+        # World config — write proper nested WorldDescription.json structure
         $wPath = Find-WorldConfig
         if ($wPath) {
-            $preset = "Medium"
+            $existingWorld = $null
+            if (Test-Path $wPath) {
+                try { $existingWorld = Get-Content $wPath -Raw | ConvertFrom-Json } catch {}
+            }
+
+            $preset = "Custom"
             $selItem = $CfgPreset.SelectedItem
             if ($selItem) { $preset = $selItem.Content }
-            $worldObj = [ordered]@{ 'Preset' = $preset }
-            if ($preset -eq "Custom") {
-                $worldObj['MobHealthMultiplier']  = [Math]::Round($SlMobHealth.Value, 2)
-                $worldObj['MobDamageMultiplier']  = [Math]::Round($SlMobDamage.Value, 2)
-                $worldObj['ShipHealthMultiplier'] = [Math]::Round($SlShipHealth.Value, 2)
-                $worldObj['ShipDamageMultiplier'] = [Math]::Round($SlShipDamage.Value, 2)
-                $worldObj['BoardingMultiplier']   = [Math]::Round($SlBoarding.Value, 2)
-                $worldObj['CoopStatsMultiplier']  = [Math]::Round($SlCoopStats.Value, 2)
-                $worldObj['CoopShipMultiplier']   = [Math]::Round($SlCoopShip.Value, 2)
-                $worldObj['CoopQuests']           = [bool]$CfgCoopQuests.IsChecked
-                $worldObj['EasyExplore']          = [bool]$CfgEasyExplore.IsChecked
-                $cdItem = $CfgCombatDiff.SelectedItem
-                if ($cdItem) { $worldObj['CombatDifficulty'] = $cdItem.Content } else { $worldObj['CombatDifficulty'] = "Normal" }
+
+            $combatShort = "Normal"
+            $cdItem = $CfgCombatDiff.SelectedItem
+            if ($cdItem) { $combatShort = $cdItem.Content }
+
+            $floatParams = [ordered]@{
+                '{"TagName": "WDS.Parameter.MobHealthMultiplier"}'               = [Math]::Round($SlMobHealth.Value, 2)
+                '{"TagName": "WDS.Parameter.MobDamageMultiplier"}'               = [Math]::Round($SlMobDamage.Value, 2)
+                '{"TagName": "WDS.Parameter.ShipsHealthMultiplier"}'             = [Math]::Round($SlShipHealth.Value, 2)
+                '{"TagName": "WDS.Parameter.ShipsDamageMultiplier"}'             = [Math]::Round($SlShipDamage.Value, 2)
+                '{"TagName": "WDS.Parameter.BoardingDifficultyMultiplier"}'      = [Math]::Round($SlBoarding.Value, 2)
+                '{"TagName": "WDS.Parameter.Coop.StatsCorrectionModifier"}'     = [Math]::Round($SlCoopStats.Value, 2)
+                '{"TagName": "WDS.Parameter.Coop.ShipStatsCorrectionModifier"}' = [Math]::Round($SlCoopShip.Value, 2)
             }
-            $worldObj | ConvertTo-Json -Depth 5 | Set-Content $wPath -Encoding UTF8
+            $boolParams = [ordered]@{
+                '{"TagName": "WDS.Parameter.Coop.SharedQuests"}' = ($CfgCoopQuests.IsChecked -eq $true)
+                '{"TagName": "WDS.Parameter.EasyExplore"}'       = ($CfgEasyExplore.IsChecked -eq $true)
+            }
+            $tagParams = [ordered]@{
+                '{"TagName": "WDS.Parameter.CombatDifficulty"}' = [ordered]@{
+                    'TagName' = "WDS.Parameter.CombatDifficulty.$combatShort"
+                }
+            }
+
+            # Preserve islandId, WorldName, CreationTime from existing file
+            $islandId     = ""
+            $worldName    = ""
+            $creationTime = 0
+            if ($existingWorld -and $existingWorld.WorldDescription) {
+                $ewd = $existingWorld.WorldDescription
+                if ($ewd.PSObject.Properties['islandId'])     { $islandId     = $ewd.islandId }
+                if ($ewd.PSObject.Properties['WorldName'])    { $worldName    = $ewd.WorldName }
+                if ($ewd.PSObject.Properties['CreationTime']) { $creationTime = $ewd.CreationTime }
+            }
+
+            $worldObj = [ordered]@{
+                'Version' = if ($existingWorld -and $existingWorld.PSObject.Properties['Version']) { $existingWorld.Version } else { 1 }
+                'WorldDescription' = [ordered]@{
+                    'islandId'        = $islandId
+                    'WorldName'       = $worldName
+                    'CreationTime'    = $creationTime
+                    'WorldPresetType' = $preset
+                    'WorldSettings'   = [ordered]@{
+                        'BoolParameters'  = $boolParams
+                        'FloatParameters' = $floatParams
+                        'TagParameters'   = $tagParams
+                    }
+                }
+            }
+            $worldObj | ConvertTo-Json -Depth 10 | Set-Content $wPath -Encoding UTF8
         }
         $TxtConfigStatus.Text = "Config saved at $(Get-Date -Format 'HH:mm:ss')."
         $TxtConfigStatus.Foreground = [System.Windows.Media.Brushes]::LightGreen
