@@ -40,7 +40,7 @@ A local GUI application for running and managing a [Windrose](https://store.stea
 1. **Install Windrose** from Steam and let it fully download.
 2. **Download this repository** — click *Code > Download ZIP* on GitHub and extract it, or clone it:
    ```
-   git clone https://github.com/YOUR_USERNAME/Windrose-Server-Manager.git "C:\Game-Servers\Windrose"
+   git clone https://github.com/psbrowand/Windrose-Server-Manager.git "C:\Game-Servers\Windrose"
    ```
 3. **Run `Launch.vbs`** — double-click it. The app opens with no terminal windows. The app opens to the **Install** tab automatically.
 4. Click **Auto-Detect** to find your Windrose Steam installation.
@@ -152,7 +152,7 @@ Windrose-Server-Manager\
 Run `Launch.bat` from a Command Prompt to see the error (use this instead of Launch.vbs when debugging). Common causes: PowerShell execution policy, missing .NET Framework.
 
 **CPU shows 0% / RAM shows very low**
-This resolves after the first 10-second watchdog cycle. The stats compare two snapshots 10 seconds apart.
+This resolves after the first 3-second watchdog cycle. The stats compare two snapshots apart to calculate CPU usage.
 
 **Invite code shows "loading..."**
 The server takes ~30-60 seconds to register with Windrose's backend after launch. The code auto-populates once ready and can also be found in `R5\ServerDescription.json`.
