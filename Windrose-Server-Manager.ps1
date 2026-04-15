@@ -86,10 +86,14 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = "1.20"
+$AppVersion  = "1.21"
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $PatchNotes = [ordered]@{
+    "1.21" = @(
+        "Moved Player History from Tools tab to Dashboard -- now side-by-side with Connected Players",
+        "Dashboard split into two-column layout: Connected Players (left) and Player History (right)"
+    )
     "1.20" = @(
         "Fixed console command crash -- restored PowerShell console after Win32 detach/attach",
         "Fixed backup status text not updating after successful backup",
@@ -410,10 +414,10 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
         <Grid Margin="12">
           <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
             <RowDefinition Height="Auto"/>
           </Grid.RowDefinitions>
+          <!-- Stats bar -->
           <Border Grid.Row="0" Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1"
                   CornerRadius="6" Padding="12,10" Margin="0,0,0,10">
             <UniformGrid Rows="1" Columns="4">
@@ -439,20 +443,51 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
               </StackPanel>
             </UniformGrid>
           </Border>
-          <Grid Grid.Row="1" Margin="0,0,0,4">
-            <TextBlock Text="Connected Players" Style="{StaticResource SectionHead}" VerticalAlignment="Center"/>
-            <Button x:Name="BtnRefreshPlayers" Content="Refresh" HorizontalAlignment="Right"
-                    Background="#2A3E55" Style="{StaticResource SmallBtn}" VerticalAlignment="Center"/>
+          <!-- Two-column: Connected Players | Player History -->
+          <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*"/>
+              <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+            <!-- Left: Connected Players -->
+            <DockPanel Grid.Column="0" Margin="0,0,6,0">
+              <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+                <TextBlock Text="Connected Players" Style="{StaticResource SectionHead}" VerticalAlignment="Center"/>
+                <Button x:Name="BtnRefreshPlayers" Content="Refresh" HorizontalAlignment="Right"
+                        Background="#2A3E55" Style="{StaticResource SmallBtn}" VerticalAlignment="Center"/>
+              </Grid>
+              <Border Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1" CornerRadius="6" Padding="4">
+                <ListBox x:Name="PlayerList" FontSize="13" BorderThickness="0" Background="Transparent">
+                  <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                      <Setter Property="Foreground" Value="#C0CDD8"/>
+                      <Setter Property="Padding" Value="6,3"/>
+                    </Style>
+                  </ListBox.ItemContainerStyle>
+                </ListBox>
+              </Border>
+            </DockPanel>
+            <!-- Right: Player History -->
+            <DockPanel Grid.Column="1" Margin="6,0,0,0">
+              <Grid DockPanel.Dock="Top" Margin="0,0,0,4">
+                <TextBlock Text="Player History" Style="{StaticResource SectionHead}" VerticalAlignment="Center"/>
+                <Button x:Name="BtnClearHistory" Content="Clear" HorizontalAlignment="Right"
+                        Background="#5A2020" Style="{StaticResource SmallBtn}" VerticalAlignment="Center"/>
+              </Grid>
+              <Border Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1" CornerRadius="6" Padding="4">
+                <ListBox x:Name="HistoryList" FontSize="11" FontFamily="Consolas" BorderThickness="0" Background="Transparent">
+                  <ListBox.ItemContainerStyle>
+                    <Style TargetType="ListBoxItem">
+                      <Setter Property="Foreground" Value="#C0CDD8"/>
+                      <Setter Property="Padding" Value="4,2"/>
+                    </Style>
+                  </ListBox.ItemContainerStyle>
+                </ListBox>
+              </Border>
+            </DockPanel>
           </Grid>
-          <ListBox x:Name="PlayerList" Grid.Row="2" FontSize="13" Margin="0,0,0,8">
-            <ListBox.ItemContainerStyle>
-              <Style TargetType="ListBoxItem">
-                <Setter Property="Foreground" Value="#C0CDD8"/>
-                <Setter Property="Padding" Value="6,3"/>
-              </Style>
-            </ListBox.ItemContainerStyle>
-          </ListBox>
-          <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,4,0,0">
+          <!-- Checkboxes -->
+          <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="0,8,0,0">
             <CheckBox x:Name="ChkAutoRestart" Content="Auto-restart if crashed"
                       Style="{StaticResource DarkCheck}" Margin="0,0,20,0" VerticalAlignment="Center"/>
             <CheckBox x:Name="ChkSaveOnStop" Content="Save world on stop"
@@ -765,19 +800,6 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                   <TextBlock Text="Countdown (seconds):" Style="{StaticResource FieldLabel}"/>
                   <TextBox x:Name="TxtCountdown" Text="30" Style="{StaticResource DarkInput}" Width="60"/>
                 </StackPanel>
-              </StackPanel>
-            </Border>
-            <TextBlock Text="Player History" Style="{StaticResource SectionHead}"/>
-            <Border Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
-              <StackPanel>
-                <ListBox x:Name="HistoryList" Height="150" Margin="0,0,0,8" FontSize="11" FontFamily="Consolas">
-                  <ListBox.ItemContainerStyle>
-                    <Style TargetType="ListBoxItem">
-                      <Setter Property="Padding" Value="4,2"/>
-                    </Style>
-                  </ListBox.ItemContainerStyle>
-                </ListBox>
-                <Button x:Name="BtnClearHistory" Content="Clear History" Background="#5A2020" Style="{StaticResource SmallBtn}" HorizontalAlignment="Left"/>
               </StackPanel>
             </Border>
           </StackPanel>
