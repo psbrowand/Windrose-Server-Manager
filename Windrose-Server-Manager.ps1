@@ -21,7 +21,7 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = "1.10"
+$AppVersion  = "1.11"
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $ServerDir      = $PSScriptRoot
@@ -564,57 +564,204 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
           </StackPanel>
         </ScrollViewer>
       </TabItem>
-      <!-- TAB 6: INSTALL -->
+      <!-- TAB 6: SETUP WIZARD -->
       <TabItem Header="Install">
         <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#0F1923">
           <StackPanel Margin="14,10">
-            <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-              <Ellipse x:Name="DotInstall" Width="14" Height="14" Fill="#CC3333" Margin="0,0,8,0" VerticalAlignment="Center"/>
-              <TextBlock x:Name="TxtInstallStatus" Text="Server not installed" Foreground="#CC3333" FontSize="13" VerticalAlignment="Center"/>
-            </StackPanel>
-            <TextBlock Text="Steam Source" Style="{StaticResource SectionHead}"/>
-            <Border Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
-              <StackPanel>
-                <Grid Margin="0,0,0,8">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                  </Grid.ColumnDefinitions>
-                  <TextBox x:Name="TxtSteamSource" Grid.Column="0" Style="{StaticResource DarkInput}"
-                           Margin="0,0,4,0"/>
-                  <Button x:Name="BtnDetectSteam" Grid.Column="1" Content="Auto-Detect"
-                          Background="#1A4A7A" Style="{StaticResource SmallBtn}" Margin="0,0,4,0"/>
-                  <Button x:Name="BtnBrowseSource" Grid.Column="2" Content="Browse..."
-                          Background="#2A3E55" Style="{StaticResource SmallBtn}"/>
-                </Grid>
-              </StackPanel>
-            </Border>
-            <TextBlock Text="Install Destination" Style="{StaticResource SectionHead}"/>
-            <Border Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+
+            <!-- Banner -->
+            <Border Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1" CornerRadius="6" Padding="12,10" Margin="0,0,0,10">
               <Grid>
                 <Grid.ColumnDefinitions>
                   <ColumnDefinition Width="*"/>
                   <ColumnDefinition Width="Auto"/>
                 </Grid.ColumnDefinitions>
-                <TextBox x:Name="TxtInstallDest" Grid.Column="0" Style="{StaticResource DarkInput}"
-                         Margin="0,0,4,0"/>
-                <Button x:Name="BtnBrowseDest" Grid.Column="1" Content="Browse..."
-                        Background="#2A3E55" Style="{StaticResource SmallBtn}"/>
+                <StackPanel>
+                  <TextBlock Text="Server Setup" FontSize="14" FontWeight="Bold" Foreground="#D4A843"/>
+                  <TextBlock Text="Follow these steps to get your Windrose dedicated server running." FontSize="11" Foreground="#8DA4B5" Margin="0,3,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+                <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                  <Ellipse x:Name="DotInstall" Width="12" Height="12" Fill="#CC3333" Margin="0,0,6,0" VerticalAlignment="Center"/>
+                  <TextBlock x:Name="TxtInstallStatus" Text="Not installed" Foreground="#CC3333" FontSize="11" VerticalAlignment="Center"/>
+                </StackPanel>
               </Grid>
             </Border>
-            <TextBlock Text="Install Log" Style="{StaticResource SectionHead}"/>
-            <ScrollViewer Height="160" VerticalScrollBarVisibility="Auto" Margin="0,0,0,10">
-              <TextBox x:Name="TxtInstallLog" IsReadOnly="True" FontFamily="Consolas" FontSize="10"
-                       Background="#0A1218" Foreground="#90A8B8" BorderBrush="#1E3348" BorderThickness="1"
-                       TextWrapping="Wrap" VerticalAlignment="Stretch"/>
-            </ScrollViewer>
-            <Button x:Name="BtnInstall" Content="Install Server" Background="#1A6B3A"
-                    Style="{StaticResource BaseBtn}" HorizontalAlignment="Left" Margin="0,0,0,10"/>
-            <TextBlock TextWrapping="Wrap" Foreground="#607080" FontSize="11" Margin="0,0,0,10">
-              Note: You must own Windrose on Steam (App ID 3041230). The installer copies files
-              from your Steam installation. Steam must have downloaded the dedicated server tools.
-            </TextBlock>
+
+            <!-- STEP 1: REQUIREMENTS -->
+            <Border Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,6">
+              <StackPanel>
+                <Grid Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <Border x:Name="StepBadge1" Width="26" Height="26" CornerRadius="13" Background="#2A3E55" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <TextBlock x:Name="StepBadgeTxt1" Text="1" Foreground="White" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  </Border>
+                  <TextBlock Grid.Column="1" Text="Check Requirements" FontSize="13" FontWeight="Bold" Foreground="#C0CDD8" VerticalAlignment="Center"/>
+                  <TextBlock x:Name="StepStatus1" Grid.Column="2" Text="" FontSize="11" Foreground="#8DA4B5" VerticalAlignment="Center"/>
+                </Grid>
+                <StackPanel Margin="36,0,0,0">
+                  <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#8DA4B5" Margin="0,0,0,8">Windrose must be installed via Steam (App ID 3041230). The dedicated server files are bundled inside the game — no separate download needed.</TextBlock>
+                  <TextBlock x:Name="TxtReqSteam" Text="Checking..." FontSize="11" Foreground="#8DA4B5" Margin="0,0,0,8"/>
+                  <Button x:Name="BtnCheckReqs" Content="Re-check" Background="#2A3E55" Style="{StaticResource SmallBtn}" HorizontalAlignment="Left"/>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <!-- STEP 2: INSTALL SERVER FILES -->
+            <Border Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,6">
+              <StackPanel>
+                <Grid Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <Border x:Name="StepBadge2" Width="26" Height="26" CornerRadius="13" Background="#2A3E55" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <TextBlock x:Name="StepBadgeTxt2" Text="2" Foreground="White" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  </Border>
+                  <TextBlock Grid.Column="1" Text="Install Server Files" FontSize="13" FontWeight="Bold" Foreground="#C0CDD8" VerticalAlignment="Center"/>
+                  <TextBlock x:Name="StepStatus2" Grid.Column="2" Text="" FontSize="11" Foreground="#8DA4B5" VerticalAlignment="Center"/>
+                </Grid>
+                <StackPanel Margin="36,0,0,0">
+                  <TextBlock Text="Steam Source" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                  <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="TxtSteamSource" Grid.Column="0" Style="{StaticResource DarkInput}" Margin="0,0,4,0"/>
+                    <Button x:Name="BtnDetectSteam" Grid.Column="1" Content="Auto-Detect" Background="#1A4A7A" Style="{StaticResource SmallBtn}" Margin="0,0,4,0"/>
+                    <Button x:Name="BtnBrowseSource" Grid.Column="2" Content="Browse..." Background="#2A3E55" Style="{StaticResource SmallBtn}"/>
+                  </Grid>
+                  <TextBlock Text="Install Destination" Style="{StaticResource FieldLabel}" Margin="0,0,0,4"/>
+                  <Grid Margin="0,0,0,8">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="TxtInstallDest" Grid.Column="0" Style="{StaticResource DarkInput}" Margin="0,0,4,0"/>
+                    <Button x:Name="BtnBrowseDest" Grid.Column="1" Content="Browse..." Background="#2A3E55" Style="{StaticResource SmallBtn}"/>
+                  </Grid>
+                  <ScrollViewer Height="110" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
+                    <TextBox x:Name="TxtInstallLog" IsReadOnly="True" FontFamily="Consolas" FontSize="10" Background="#0A1218" Foreground="#90A8B8" BorderBrush="#1E3348" BorderThickness="1" TextWrapping="Wrap"/>
+                  </ScrollViewer>
+                  <Button x:Name="BtnInstall" Content="Install Server" Background="#1A6B3A" Style="{StaticResource BaseBtn}" HorizontalAlignment="Left"/>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <!-- STEP 3: CONFIGURE SERVER -->
+            <Border Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,6">
+              <StackPanel>
+                <Grid Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <Border x:Name="StepBadge3" Width="26" Height="26" CornerRadius="13" Background="#2A3E55" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <TextBlock x:Name="StepBadgeTxt3" Text="3" Foreground="White" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  </Border>
+                  <TextBlock Grid.Column="1" Text="Name Your Server" FontSize="13" FontWeight="Bold" Foreground="#C0CDD8" VerticalAlignment="Center"/>
+                  <TextBlock x:Name="StepStatus3" Grid.Column="2" Text="" FontSize="11" Foreground="#8DA4B5" VerticalAlignment="Center"/>
+                </Grid>
+                <StackPanel Margin="36,0,0,0">
+                  <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#8DA4B5" Margin="0,0,0,10">Set a name and basic options for your server. You can always change these later in the Config tab.</TextBlock>
+                  <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="120"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Server Name" Style="{StaticResource FieldLabel}" VerticalAlignment="Center"/>
+                    <TextBox x:Name="TxtSetupName" Grid.Column="1" Style="{StaticResource DarkInput}" Text="My Windrose Server"/>
+                  </Grid>
+                  <Grid Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="120"/>
+                      <ColumnDefinition Width="*"/>
+                      <ColumnDefinition Width="36"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Max Players" Style="{StaticResource FieldLabel}" VerticalAlignment="Center"/>
+                    <Slider x:Name="SlSetupMaxPlayers" Grid.Column="1" Minimum="1" Maximum="20" Value="10" TickFrequency="1" IsSnapToTickEnabled="True" VerticalAlignment="Center"/>
+                    <TextBlock x:Name="TxtSetupMaxVal" Grid.Column="2" Text="10" Foreground="#D4A843" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                  </Grid>
+                  <Grid Margin="0,0,0,10">
+                    <Grid.ColumnDefinitions>
+                      <ColumnDefinition Width="120"/>
+                      <ColumnDefinition Width="Auto"/>
+                      <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="Password" Style="{StaticResource FieldLabel}" VerticalAlignment="Center"/>
+                    <CheckBox x:Name="ChkSetupPassword" Grid.Column="1" Style="{StaticResource DarkCheck}" Margin="0,0,8,0"/>
+                    <TextBox x:Name="TxtSetupPassword" Grid.Column="2" Style="{StaticResource DarkInput}" IsEnabled="False"/>
+                  </Grid>
+                  <StackPanel Orientation="Horizontal">
+                    <Button x:Name="BtnSaveSetup" Content="Save &amp; Continue" Background="#1A6B3A" Style="{StaticResource BaseBtn}"/>
+                    <TextBlock x:Name="TxtSetupStatus" Text="" Foreground="#8DA4B5" FontSize="11" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                  </StackPanel>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <!-- STEP 4: PORT FORWARDING -->
+            <Border Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,6">
+              <StackPanel>
+                <Grid Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                  </Grid.ColumnDefinitions>
+                  <Border x:Name="StepBadge4" Width="26" Height="26" CornerRadius="13" Background="#2A3E55" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <TextBlock x:Name="StepBadgeTxt4" Text="4" Foreground="White" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  </Border>
+                  <TextBlock Grid.Column="1" Text="Open Your Ports" FontSize="13" FontWeight="Bold" Foreground="#C0CDD8" VerticalAlignment="Center"/>
+                  <TextBlock x:Name="StepStatus4" Grid.Column="2" Text="" FontSize="11" Foreground="#8DA4B5" VerticalAlignment="Center"/>
+                </Grid>
+                <StackPanel Margin="36,0,0,0">
+                  <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#8DA4B5" Margin="0,0,0,8">For players outside your home network to connect, log into your router and forward these two ports to this PC:</TextBlock>
+                  <Border Background="#0D1820" CornerRadius="4" Padding="10,8" Margin="0,0,0,8">
+                    <StackPanel>
+                      <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
+                        <TextBlock Text="UDP  7777" FontFamily="Consolas" FontSize="12" Foreground="#D4A843" Width="120"/>
+                        <TextBlock Text="Game traffic" FontSize="11" Foreground="#8DA4B5" VerticalAlignment="Center"/>
+                      </StackPanel>
+                      <StackPanel Orientation="Horizontal">
+                        <TextBlock Text="UDP  7778" FontFamily="Consolas" FontSize="12" Foreground="#D4A843" Width="120"/>
+                        <TextBlock Text="Game traffic (secondary)" FontSize="11" Foreground="#8DA4B5" VerticalAlignment="Center"/>
+                      </StackPanel>
+                    </StackPanel>
+                  </Border>
+                  <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#607080" Margin="0,0,0,8">Players on the same Wi-Fi network as you can connect without port forwarding. Only needed for friends connecting over the internet.</TextBlock>
+                  <Button x:Name="BtnCopyPorts" Content="Copy Ports to Clipboard" Background="#2A3E55" Style="{StaticResource SmallBtn}" HorizontalAlignment="Left"/>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
+            <!-- STEP 5: ALL DONE -->
+            <Border Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,6">
+              <StackPanel>
+                <Grid Margin="0,0,0,8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                  </Grid.ColumnDefinitions>
+                  <Border x:Name="StepBadge5" Width="26" Height="26" CornerRadius="13" Background="#2A3E55" VerticalAlignment="Center" Margin="0,0,10,0">
+                    <TextBlock x:Name="StepBadgeTxt5" Text="5" Foreground="White" FontWeight="Bold" FontSize="12" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                  </Border>
+                  <TextBlock Grid.Column="1" Text="Start Your Server" FontSize="13" FontWeight="Bold" Foreground="#C0CDD8" VerticalAlignment="Center"/>
+                </Grid>
+                <StackPanel Margin="36,0,0,0">
+                  <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#8DA4B5" Margin="0,0,0,10">Everything is ready. Head to the Dashboard tab and click Start. Your invite code will appear in the header once the server is online — share it with friends to let them join.</TextBlock>
+                  <Button x:Name="BtnGoToDashboard" Content="Go to Dashboard" Background="#1A6B3A" Style="{StaticResource BaseBtn}" HorizontalAlignment="Left"/>
+                </StackPanel>
+              </StackPanel>
+            </Border>
+
           </StackPanel>
         </ScrollViewer>
       </TabItem>
@@ -724,6 +871,23 @@ $TxtInstallDest  = Ctrl 'TxtInstallDest'
 $BtnBrowseDest   = Ctrl 'BtnBrowseDest'
 $TxtInstallLog   = Ctrl 'TxtInstallLog'
 $BtnInstall      = Ctrl 'BtnInstall'
+# Wizard controls
+$StepBadge1      = Ctrl 'StepBadge1';  $StepBadgeTxt1 = Ctrl 'StepBadgeTxt1';  $StepStatus1 = Ctrl 'StepStatus1'
+$StepBadge2      = Ctrl 'StepBadge2';  $StepBadgeTxt2 = Ctrl 'StepBadgeTxt2';  $StepStatus2 = Ctrl 'StepStatus2'
+$StepBadge3      = Ctrl 'StepBadge3';  $StepBadgeTxt3 = Ctrl 'StepBadgeTxt3';  $StepStatus3 = Ctrl 'StepStatus3'
+$StepBadge4      = Ctrl 'StepBadge4';  $StepBadgeTxt4 = Ctrl 'StepBadgeTxt4';  $StepStatus4 = Ctrl 'StepStatus4'
+$StepBadge5      = Ctrl 'StepBadge5';  $StepBadgeTxt5 = Ctrl 'StepBadgeTxt5'
+$TxtReqSteam     = Ctrl 'TxtReqSteam'
+$BtnCheckReqs    = Ctrl 'BtnCheckReqs'
+$TxtSetupName    = Ctrl 'TxtSetupName'
+$SlSetupMaxPlayers = Ctrl 'SlSetupMaxPlayers'
+$TxtSetupMaxVal  = Ctrl 'TxtSetupMaxVal'
+$ChkSetupPassword = Ctrl 'ChkSetupPassword'
+$TxtSetupPassword = Ctrl 'TxtSetupPassword'
+$BtnSaveSetup    = Ctrl 'BtnSaveSetup'
+$TxtSetupStatus  = Ctrl 'TxtSetupStatus'
+$BtnCopyPorts    = Ctrl 'BtnCopyPorts'
+$BtnGoToDashboard = Ctrl 'BtnGoToDashboard'
 $BtnStart        = Ctrl 'BtnStart'
 $BtnStop         = Ctrl 'BtnStop'
 $BtnRestart      = Ctrl 'BtnRestart'
@@ -1122,6 +1286,72 @@ function Reset-Stats {
     $TxtUptimeBig.Text = "--"
     $TxtUptime.Text = ""
     $PlayerList.Items.Clear()
+}
+
+function Update-SetupWizard {
+    $cGreen  = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1A,0x6B,0x3A))
+    $cBlue   = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1A,0x4A,0x7A))
+    $cGray   = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55))
+    $fGreen  = [System.Windows.Media.Brushes]::LightGreen
+    $fGray   = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x8D,0xA4,0xB5))
+    $fRed    = [System.Windows.Media.Brushes]::Tomato
+
+    $steamFound  = ($null -ne (Find-SteamWindrose)) -or (Test-Path $ServerExe)
+    $serverReady = Test-Path $ServerExe
+    $configReady = ($script:step3Saved -eq $true) -or (Test-Path $ConfigPath)
+
+    # Step 1 — Requirements
+    if ($steamFound) {
+        $StepBadge1.Background = $cGreen; $StepBadgeTxt1.Text = [char]0x2713
+        $StepStatus1.Text = "Ready"; $StepStatus1.Foreground = $fGreen
+        $TxtReqSteam.Text = ([char]0x2713) + " Windrose found on Steam"
+        $TxtReqSteam.Foreground = $fGreen
+    } else {
+        $StepBadge1.Background = $cBlue; $StepBadgeTxt1.Text = "1"
+        $StepStatus1.Text = "Action needed"; $StepStatus1.Foreground = $fRed
+        $TxtReqSteam.Text = ([char]0x2717) + " Windrose not found — install it via Steam first (App ID 3041230)"
+        $TxtReqSteam.Foreground = $fRed
+    }
+
+    # Step 2 — Install
+    if ($serverReady) {
+        $StepBadge2.Background = $cGreen; $StepBadgeTxt2.Text = [char]0x2713
+        $StepStatus2.Text = "Installed"; $StepStatus2.Foreground = $fGreen
+    } elseif ($steamFound) {
+        $StepBadge2.Background = $cBlue; $StepBadgeTxt2.Text = "2"
+        $StepStatus2.Text = "Ready to install"; $StepStatus2.Foreground = $fGray
+    } else {
+        $StepBadge2.Background = $cGray; $StepBadgeTxt2.Text = "2"
+        $StepStatus2.Text = "Complete step 1 first"; $StepStatus2.Foreground = $fGray
+    }
+
+    # Step 3 — Configure
+    if ($configReady -and $serverReady) {
+        $StepBadge3.Background = $cGreen; $StepBadgeTxt3.Text = [char]0x2713
+        $StepStatus3.Text = "Configured"; $StepStatus3.Foreground = $fGreen
+    } elseif ($serverReady) {
+        $StepBadge3.Background = $cBlue; $StepBadgeTxt3.Text = "3"
+        $StepStatus3.Text = "Fill in and save"; $StepStatus3.Foreground = $fGray
+    } else {
+        $StepBadge3.Background = $cGray; $StepBadgeTxt3.Text = "3"
+        $StepStatus3.Text = "Complete step 2 first"; $StepStatus3.Foreground = $fGray
+    }
+
+    # Step 4 — Port forwarding (informational)
+    if ($serverReady) {
+        $StepBadge4.Background = $cBlue; $StepBadgeTxt4.Text = "4"
+        $StepStatus4.Text = "Review ports"; $StepStatus4.Foreground = $fGray
+    } else {
+        $StepBadge4.Background = $cGray; $StepBadgeTxt4.Text = "4"
+        $StepStatus4.Text = ""; $StepStatus4.Foreground = $fGray
+    }
+
+    # Step 5 — Go to dashboard
+    if ($serverReady) {
+        $StepBadge5.Background = $cBlue; $StepBadgeTxt5.Text = "5"
+    } else {
+        $StepBadge5.Background = $cGray; $StepBadgeTxt5.Text = "5"
+    }
 }
 
 function Set-UIRunning {
@@ -1709,11 +1939,15 @@ $BtnInstall.Add_Click({
                             Password           = ""
                             ServerName         = "My Windrose Server"
                             WorldIslandId      = ""
-                            MaxPlayerCount     = 4
+                            MaxPlayerCount     = 10
                             P2pProxyAddress    = "127.0.0.1"
                         }
                     } | ConvertTo-Json -Depth 5 | Set-Content $ConfigPath -Encoding UTF8
+                    Read-ServerConfig
+                    # Pre-fill step 3 with the default name so it's ready to edit
+                    $TxtSetupName.Text = "My Windrose Server"
                 }
+                Update-SetupWizard
             } else {
                 $TxtInstallLog.Text += "`n`nWARNING: Install may have failed. WindroseServer.exe not found at destination."
             }
@@ -1721,6 +1955,69 @@ $BtnInstall.Add_Click({
     })
     $script:installTimer.Start()
 })
+
+# ---- WIZARD EVENT HANDLERS ----
+$BtnCheckReqs.Add_Click({
+    $found = Find-SteamWindrose
+    if ($found -or (Test-Path $ServerExe)) {
+        $TxtSteamSource.Text = if ($found) { $found } else { $TxtSteamSource.Text }
+    }
+    Update-SetupWizard
+})
+
+$SlSetupMaxPlayers.Add_ValueChanged({
+    $TxtSetupMaxVal.Text = [int]$SlSetupMaxPlayers.Value
+})
+
+$ChkSetupPassword.Add_Checked({   $TxtSetupPassword.IsEnabled = $true  })
+$ChkSetupPassword.Add_Unchecked({ $TxtSetupPassword.IsEnabled = $false })
+
+$BtnSaveSetup.Add_Click({
+    $name = $TxtSetupName.Text.Trim()
+    if (-not $name) { $TxtSetupStatus.Text = "Please enter a server name."; return }
+    try {
+        $cfgDir = [System.IO.Path]::GetDirectoryName($ConfigPath)
+        if (-not (Test-Path $cfgDir)) { New-Item $cfgDir -ItemType Directory -Force | Out-Null }
+        $pw = if ($ChkSetupPassword.IsChecked) { $TxtSetupPassword.Text } else { "" }
+        $existingInner = $null
+        if (Test-Path $ConfigPath) {
+            try { $existingInner = (Get-Content $ConfigPath -Raw | ConvertFrom-Json).ServerDescription_Persistent } catch {}
+        }
+        [ordered]@{
+            Version      = 1
+            DeploymentId = ""
+            ServerDescription_Persistent = [ordered]@{
+                PersistentServerId  = if ($existingInner) { $existingInner.PersistentServerId } else { "" }
+                InviteCode          = if ($existingInner) { $existingInner.InviteCode }          else { "" }
+                IsPasswordProtected = ($ChkSetupPassword.IsChecked -eq $true)
+                Password            = $pw
+                ServerName          = $name
+                WorldIslandId       = if ($existingInner) { $existingInner.WorldIslandId }       else { "" }
+                MaxPlayerCount      = [int]$SlSetupMaxPlayers.Value
+                P2pProxyAddress     = if ($existingInner) { $existingInner.P2pProxyAddress }     else { "127.0.0.1" }
+            }
+        } | ConvertTo-Json -Depth 5 | Set-Content $ConfigPath -Encoding UTF8
+        $script:step3Saved = $true
+        Read-ServerConfig
+        $TxtSetupStatus.Text = "Saved!"
+        $TxtSetupStatus.Foreground = [System.Windows.Media.Brushes]::LightGreen
+        Update-SetupWizard
+    } catch {
+        $TxtSetupStatus.Text = "Error: $_"
+        $TxtSetupStatus.Foreground = [System.Windows.Media.Brushes]::Tomato
+    }
+})
+
+$BtnCopyPorts.Add_Click({
+    [System.Windows.Clipboard]::SetText("UDP 7777 and UDP 7778")
+    $BtnCopyPorts.Content = "Copied!"
+    $copyTimer = [System.Windows.Threading.DispatcherTimer]::new()
+    $copyTimer.Interval = [TimeSpan]::FromSeconds(2)
+    $copyTimer.Add_Tick({ $BtnCopyPorts.Content = "Copy Ports to Clipboard"; $copyTimer.Stop() })
+    $copyTimer.Start()
+})
+
+$BtnGoToDashboard.Add_Click({ $MainTabs.SelectedIndex = 0 })
 
 # ---- WATCHDOG TIMER ----
 $script:watchdogTick = 0
@@ -1836,6 +2133,7 @@ Load-History
 $lastZip = Get-ChildItem "$BackupDir\Backup_*.zip" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
 if ($lastZip) { $TxtLastBackup.Text = "Last backup: $($lastZip.BaseName -replace 'Backup_','')" }
 
+$script:step3Saved = Test-Path $ConfigPath
 if (Test-Path $ServerExe) {
     $DotInstall.Fill = [System.Windows.Media.Brushes]::LimeGreen
     $TxtInstallStatus.Text = "Server installed."
@@ -1846,6 +2144,10 @@ if (Test-Path $ServerExe) {
     $TxtInstallStatus.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xCC,0x33,0x33))
     $MainTabs.SelectedIndex = 5
 }
+# Auto-detect Steam source and run initial wizard state
+$detected = Find-SteamWindrose
+if ($detected) { $TxtSteamSource.Text = $detected }
+Update-SetupWizard
 
 $existingProc = Get-ServerProcess
 if ($existingProc) {
