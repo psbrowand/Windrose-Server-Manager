@@ -21,10 +21,14 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = "1.16"
+$AppVersion  = "1.17"
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $PatchNotes = [ordered]@{
+    "1.17" = @(
+        "Fixed ComboBox header (selected value area) background -- was white, now dark",
+        "Full ControlTemplate applied to dropdowns for consistent dark theming throughout"
+    )
     "1.16" = @(
         "Fixed ComboBox dropdown popup background using DropDownOpened event",
         "Popup border now correctly shows dark background when dropdown opens"
@@ -157,6 +161,62 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
               </Trigger>
             </Style.Triggers>
           </Style>
+        </Setter.Value>
+      </Setter>
+      <Setter Property="Template">
+        <Setter.Value>
+          <ControlTemplate TargetType="ComboBox">
+            <Grid x:Name="templateRoot">
+              <ToggleButton x:Name="toggleButton"
+                Background="{TemplateBinding Background}"
+                BorderBrush="{TemplateBinding BorderBrush}"
+                BorderThickness="{TemplateBinding BorderThickness}"
+                IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                Focusable="false" ClickMode="Press">
+                <ToggleButton.Template>
+                  <ControlTemplate TargetType="ToggleButton">
+                    <Border Background="{TemplateBinding Background}"
+                            BorderBrush="{TemplateBinding BorderBrush}"
+                            BorderThickness="{TemplateBinding BorderThickness}">
+                      <Grid>
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition/>
+                          <ColumnDefinition Width="20"/>
+                        </Grid.ColumnDefinitions>
+                        <Border Grid.Column="1" BorderBrush="#2A3E55" BorderThickness="1,0,0,0">
+                          <Path Fill="#D0D8E4" HorizontalAlignment="Center" VerticalAlignment="Center"
+                                Data="M 0 0 L 4 4 L 8 0 Z"/>
+                        </Border>
+                      </Grid>
+                    </Border>
+                  </ControlTemplate>
+                </ToggleButton.Template>
+              </ToggleButton>
+              <ContentPresenter
+                Content="{TemplateBinding SelectionBoxItem}"
+                ContentTemplate="{TemplateBinding SelectionBoxItemTemplate}"
+                ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                HorizontalAlignment="Left"
+                VerticalAlignment="Center"
+                Margin="{TemplateBinding Padding}"
+                IsHitTestVisible="false"
+                TextBlock.Foreground="{TemplateBinding Foreground}"/>
+              <Popup x:Name="PART_Popup"
+                IsOpen="{TemplateBinding IsDropDownOpen}"
+                Placement="Bottom"
+                AllowsTransparency="true"
+                Focusable="false"
+                MinWidth="{Binding ActualWidth, ElementName=toggleButton}">
+                <Border Background="#1A2736" BorderBrush="#2A3E55" BorderThickness="1"
+                        MaxHeight="{TemplateBinding MaxDropDownHeight}">
+                  <ScrollViewer>
+                    <ItemsPresenter KeyboardNavigation.DirectionalNavigation="Contained"
+                                    SnapsToDevicePixels="{TemplateBinding SnapsToDevicePixels}"/>
+                  </ScrollViewer>
+                </Border>
+              </Popup>
+            </Grid>
+          </ControlTemplate>
         </Setter.Value>
       </Setter>
     </Style>
@@ -1648,18 +1708,6 @@ $CfgPreset.Add_SelectionChanged({
     }
 })
 
-foreach ($cb in @($CfgPreset, $CfgCombatDiff)) {
-    $cb.Add_DropDownOpened({
-        $sender = $args[0]
-        try {
-            $border = $sender.Template.FindName("DropDownBorder", $sender)
-            if ($border) {
-                $border.Background  = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1A,0x27,0x36))
-                $border.BorderBrush = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55))
-            }
-        } catch {}
-    })
-}
 
 $sliderPairs = @(
     @{ Slider = $SlMobHealth;  Label = $ValMobHealth  },
