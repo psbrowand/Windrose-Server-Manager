@@ -1,4 +1,4 @@
-Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
+﻿Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 Add-Type @"
@@ -21,8 +21,54 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = "1.13"
+$AppVersion  = "1.14"
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
+
+$PatchNotes = [ordered]@{
+    "1.14" = @(
+        "Added Patch Notes button in Tools tab",
+        "Shows a scrollable history of changes for each version"
+    )
+    "1.13" = @(
+        "Fixed Update Now button hanging indefinitely on download",
+        "Download job now uses script-scoped variables so the timer can track it",
+        "Check for Updates now cancels and resets any stuck download"
+    )
+    "1.12" = @(
+        "Fixed launch crash caused by special characters (encoding issue with PowerShell 5.1)",
+        "App version number now correctly tracked and pushed to GitHub"
+    )
+    "1.11" = @(
+        "Install tab replaced with a 5-step setup wizard",
+        "Step 1: auto-checks whether Windrose is installed on Steam",
+        "Step 2: install server files (existing flow, reorganized)",
+        "Step 3: name your server and set max players before first launch",
+        "Step 4: port forwarding reference card with copy-to-clipboard",
+        "Step 5: Go to Dashboard button"
+    )
+    "1.10" = @(
+        "Switched to 1.XX version numbering scheme",
+        "Fixed update version comparison logic",
+        "Fixed max players clamp -- values above 10 now load correctly",
+        "Default max players changed from 4 to 10"
+    )
+    "1.09" = @(
+        "Added manual Refresh button to Dashboard player list",
+        "Player list auto-resyncs from full log every 30 seconds to fix stale entries"
+    )
+    "1.08" = @(
+        "Config tab now pre-populates world settings on startup",
+        "World config save now writes correct nested JSON structure",
+        "Console commands re-enabled -- server launched with -log so UE5 reads stdin",
+        "Server console window hidden via Win32 API after startup"
+    )
+    "1.07" = @(
+        "Added self-update feature (Check for Updates / Update Now in Tools tab)",
+        "Added right-click kick and ban on the Dashboard player list",
+        "Dashboard player count fixed (was always showing 0)",
+        "Max players slider extended from 10 to 20"
+    )
+}
 
 $ServerDir      = $PSScriptRoot
 $ServerExe      = "$ServerDir\WindroseServer.exe"
@@ -516,6 +562,7 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                   <TextBlock x:Name="TxtCurrentVersion" Text="Current version: ..." Foreground="#8DA4B5" FontSize="11" VerticalAlignment="Center" Margin="0,0,16,0"/>
                   <Button x:Name="BtnCheckUpdate" Content="Check for Updates" Background="#1A4A7A" Style="{StaticResource SmallBtn}"/>
                   <Button x:Name="BtnUpdate" Content="Update Now" Background="#1A6B3A" Style="{StaticResource SmallBtn}" Visibility="Collapsed"/>
+                  <Button x:Name="BtnPatchNotes" Content="Patch Notes" Background="#2A3E55" Style="{StaticResource SmallBtn}"/>
                 </StackPanel>
                 <TextBlock x:Name="TxtUpdateStatus" Text="" Foreground="#8DA4B5" FontSize="11" TextWrapping="Wrap"/>
               </StackPanel>
@@ -861,6 +908,7 @@ $BtnClearHistory = Ctrl 'BtnClearHistory'
 $TxtCurrentVersion = Ctrl 'TxtCurrentVersion'
 $BtnCheckUpdate  = Ctrl 'BtnCheckUpdate'
 $BtnUpdate       = Ctrl 'BtnUpdate'
+$BtnPatchNotes   = Ctrl 'BtnPatchNotes'
 $TxtUpdateStatus = Ctrl 'TxtUpdateStatus'
 $DotInstall      = Ctrl 'DotInstall'
 $TxtInstallStatus= Ctrl 'TxtInstallStatus'
@@ -1903,6 +1951,61 @@ $BtnUpdate.Add_Click({
         }
     })
     $script:updateDownloadTimer.Start()
+})
+
+$BtnPatchNotes.Add_Click({
+    $w = [System.Windows.Window]::new()
+    $w.Title                  = "Patch Notes"
+    $w.Width                  = 520
+    $w.Height                 = 520
+    $w.MinWidth               = 400
+    $w.Background             = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x0F,0x19,0x23))
+    $w.WindowStartupLocation  = "CenterOwner"
+    $w.Owner                  = $Window
+    $w.ResizeMode             = "CanResizeWithGrip"
+
+    $scroll = [System.Windows.Controls.ScrollViewer]::new()
+    $scroll.VerticalScrollBarVisibility = "Auto"
+    $scroll.Padding = [System.Windows.Thickness]::new(14,10,14,10)
+
+    $stack = [System.Windows.Controls.StackPanel]::new()
+
+    foreach ($ver in $PatchNotes.Keys) {
+        $card = [System.Windows.Controls.Border]::new()
+        $card.Background     = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x11,0x1E,0x2A))
+        $card.BorderBrush    = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1E,0x33,0x48))
+        $card.BorderThickness= [System.Windows.Thickness]::new(1)
+        $card.CornerRadius   = [System.Windows.CornerRadius]::new(6)
+        $card.Padding        = [System.Windows.Thickness]::new(12,10,12,10)
+        $card.Margin         = [System.Windows.Thickness]::new(0,0,0,6)
+
+        $inner = [System.Windows.Controls.StackPanel]::new()
+
+        $hdr = [System.Windows.Controls.TextBlock]::new()
+        $hdr.Text       = "Version $ver"
+        $hdr.FontSize   = 13
+        $hdr.FontWeight = [System.Windows.FontWeights]::Bold
+        $hdr.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xD4,0xA8,0x43))
+        $hdr.Margin     = [System.Windows.Thickness]::new(0,0,0,6)
+        $inner.Children.Add($hdr) | Out-Null
+
+        foreach ($line in $PatchNotes[$ver]) {
+            $tb = [System.Windows.Controls.TextBlock]::new()
+            $tb.Text        = "  - $line"
+            $tb.FontSize    = 12
+            $tb.Foreground  = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xC0,0xCD,0xD8))
+            $tb.TextWrapping= "Wrap"
+            $tb.Margin      = [System.Windows.Thickness]::new(0,2,0,0)
+            $inner.Children.Add($tb) | Out-Null
+        }
+
+        $card.Child = $inner
+        $stack.Children.Add($card) | Out-Null
+    }
+
+    $scroll.Content  = $stack
+    $w.Content       = $scroll
+    $w.ShowDialog() | Out-Null
 })
 
 # Install tab
