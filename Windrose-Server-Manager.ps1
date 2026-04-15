@@ -21,10 +21,14 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = "1.14"
+$AppVersion  = "1.15"
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $PatchNotes = [ordered]@{
+    "1.15" = @(
+        "Fixed ComboBox dropdown popup background (was white, now dark)",
+        "Added Reload Saved Config button to Config tab -- discards unsaved changes"
+    )
     "1.14" = @(
         "Added Patch Notes button in Tools tab",
         "Shows a scrollable history of changes for each version"
@@ -133,6 +137,17 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Padding" Value="6,4"/>
       <Setter Property="FontSize" Value="13"/>
+      <!-- Override the system colour the popup border uses as its background -->
+      <Setter Property="Resources">
+        <Setter.Value>
+          <ResourceDictionary>
+            <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}"      Color="#1A2736"/>
+            <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}"  Color="#D0D8E4"/>
+            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}"   Color="#1E3348"/>
+            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#D4A843"/>
+          </ResourceDictionary>
+        </Setter.Value>
+      </Setter>
       <Setter Property="ItemContainerStyle">
         <Setter.Value>
           <Style TargetType="ComboBoxItem">
@@ -477,6 +492,7 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
             </Border>
             <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
               <Button x:Name="BtnSaveConfig" Content="Save Config" Background="#1A6B3A" Style="{StaticResource BaseBtn}"/>
+              <Button x:Name="BtnReloadConfig" Content="Reload Saved Config" Background="#2A3E55" Style="{StaticResource BaseBtn}"/>
               <Button x:Name="BtnOpenWorldJson" Content="Open World JSON" Background="#1A3A6B" Style="{StaticResource BaseBtn}"/>
             </StackPanel>
             <TextBlock x:Name="TxtConfigStatus" Text="" Foreground="#70C48A" FontSize="11" Margin="4,6,0,0"/>
@@ -881,6 +897,7 @@ $CfgCombatDiff   = Ctrl 'CfgCombatDiff'
 $CfgCoopQuests   = Ctrl 'CfgCoopQuests'
 $CfgEasyExplore  = Ctrl 'CfgEasyExplore'
 $BtnSaveConfig   = Ctrl 'BtnSaveConfig'
+$BtnReloadConfig = Ctrl 'BtnReloadConfig'
 $BtnOpenWorldJson= Ctrl 'BtnOpenWorldJson'
 $TxtConfigStatus = Ctrl 'TxtConfigStatus'
 $BtnFAll         = Ctrl 'BtnFAll'
@@ -1745,6 +1762,13 @@ $BtnSaveConfig.Add_Click({
         $TxtConfigStatus.Text = "Error: $_"
         $TxtConfigStatus.Foreground = [System.Windows.Media.Brushes]::Tomato
     }
+})
+
+$BtnReloadConfig.Add_Click({
+    Read-ServerConfig
+    Read-WorldConfig
+    $TxtConfigStatus.Text = "Config reloaded from disk."
+    $TxtConfigStatus.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x8D,0xA4,0xB5))
 })
 
 $BtnOpenWorldJson.Add_Click({
