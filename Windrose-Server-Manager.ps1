@@ -21,7 +21,7 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = 7
+$AppVersion  = 8
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $ServerDir      = $PSScriptRoot
@@ -239,7 +239,11 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
               </StackPanel>
             </UniformGrid>
           </Border>
-          <TextBlock Grid.Row="1" Text="Connected Players" Style="{StaticResource SectionHead}" Margin="0,0,0,4"/>
+          <Grid Grid.Row="1" Margin="0,0,0,4">
+            <TextBlock Text="Connected Players" Style="{StaticResource SectionHead}" VerticalAlignment="Center"/>
+            <Button x:Name="BtnRefreshPlayers" Content="Refresh" HorizontalAlignment="Right"
+                    Background="#2A3E55" Style="{StaticResource SmallBtn}" VerticalAlignment="Center"/>
+          </Grid>
           <ListBox x:Name="PlayerList" Grid.Row="2" FontSize="13" Margin="0,0,0,8">
             <ListBox.ItemContainerStyle>
               <Style TargetType="ListBoxItem">
@@ -654,8 +658,9 @@ $TxtCpu          = Ctrl 'TxtCpu'
 $TxtRam          = Ctrl 'TxtRam'
 $TxtPlayers      = Ctrl 'TxtPlayers'
 $TxtUptimeBig    = Ctrl 'TxtUptimeBig'
-$PlayerList      = Ctrl 'PlayerList'
-$ChkAutoRestart  = Ctrl 'ChkAutoRestart'
+$PlayerList          = Ctrl 'PlayerList'
+$BtnRefreshPlayers   = Ctrl 'BtnRefreshPlayers'
+$ChkAutoRestart      = Ctrl 'ChkAutoRestart'
 $CfgName         = Ctrl 'CfgName'
 $CfgMaxPlayers   = Ctrl 'CfgMaxPlayers'
 $TxtMaxPlayersVal= Ctrl 'TxtMaxPlayersVal'
@@ -1100,6 +1105,14 @@ function Update-Stats {
             $TxtUptime.Text    = "Up: $upStr"
         }
     } catch {}
+}
+
+function Refresh-PlayerList {
+    # Full log replay — rebuilds player list from scratch, correcting any missed leave events.
+    Read-PlayerList | Out-Null
+    $PlayerList.Items.Clear()
+    foreach ($p in $script:onlinePlayers) { $PlayerList.Items.Add($p) | Out-Null }
+    $TxtPlayers.Text = "$($script:onlinePlayers.Count) / $($script:MaxPlayers)"
 }
 
 function Reset-Stats {
@@ -1710,9 +1723,11 @@ $BtnInstall.Add_Click({
 })
 
 # ---- WATCHDOG TIMER ----
+$script:watchdogTick = 0
 $script:watchdog = [System.Windows.Threading.DispatcherTimer]::new()
 $script:watchdog.Interval = [TimeSpan]::FromSeconds(3)
 $script:watchdog.Add_Tick({
+    $script:watchdogTick++
     $proc       = Get-ServerProcess
     $uiRunning  = ($TxtStatus.Text.Trim() -eq "Running")
     if ($proc -and -not $uiRunning) {
@@ -1720,6 +1735,8 @@ $script:watchdog.Add_Tick({
         if ($script:StartTime -eq $null) { $script:StartTime = [DateTime]::Now }
     } elseif ($proc -and $uiRunning) {
         Update-Stats
+        # Full player list rebuild every 30 s to self-correct missed leave events
+        if ($script:watchdogTick % 10 -eq 0) { Refresh-PlayerList }
     } elseif (-not $proc -and $uiRunning) {
         Set-UIStopped
         Log "Server process ended unexpectedly."
@@ -1757,6 +1774,11 @@ $script:logTailTimer.Add_Tick({ Update-LogViewer })
 # ---- INITIAL STATE ----
 $TxtInstallDest.Text = $ServerDir
 $TxtCurrentVersion.Text = "Current version: $AppVersion"
+
+$BtnRefreshPlayers.Add_Click({
+    if (Get-ServerProcess) { Refresh-PlayerList }
+    else { $PlayerList.Items.Clear(); $TxtPlayers.Text = "0 / $($script:MaxPlayers)" }
+})
 
 # ---- PLAYER LIST CONTEXT MENU ----
 $playerMenu     = [System.Windows.Controls.ContextMenu]::new()
