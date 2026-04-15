@@ -1,11 +1,12 @@
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-$AppVersion  = 4
+$AppVersion  = 5
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
-$ServerDir   = $PSScriptRoot
-$ServerExe   = "$ServerDir\WindroseServer.exe"
+$ServerDir      = $PSScriptRoot
+$ServerExe      = "$ServerDir\WindroseServer.exe"
+$ServerExeDirect= "$ServerDir\R5\Binaries\Win64\WindroseServer-Win64-Shipping.exe"
 $ConfigPath  = "$ServerDir\R5\ServerDescription.json"
 $LogPath     = "$ServerDir\R5\Saved\Logs\R5.log"
 $SavesBase   = "$ServerDir\R5\Saved\SaveProfiles"
@@ -1102,7 +1103,14 @@ function Invoke-RestartWithCountdown($actionBlock) {
 
 function Start-ServerProcess {
     $psi = [Diagnostics.ProcessStartInfo]::new()
-    $psi.FileName              = $ServerExe
+    # Launch the shipping exe directly so we can suppress its console window.
+    # The thin launcher (WindroseServer.exe) spawns a cmd.exe child which
+    # ignores CreateNoWindow; going direct avoids that entirely.
+    if (Test-Path $ServerExeDirect) {
+        $psi.FileName = $ServerExeDirect
+    } else {
+        $psi.FileName = $ServerExe
+    }
     $psi.Arguments             = "-log"
     $psi.WorkingDirectory      = $ServerDir
     $psi.UseShellExecute       = $false
