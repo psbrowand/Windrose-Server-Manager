@@ -1107,7 +1107,7 @@ function Start-ServerProcess {
     $psi.WorkingDirectory      = $ServerDir
     $psi.UseShellExecute       = $false
     $psi.RedirectStandardInput = $true
-    $psi.CreateNoWindow        = $false
+    $psi.CreateNoWindow        = $true
     $script:ServerProc  = [Diagnostics.Process]::Start($psi)
     $script:ServerStdin = $script:ServerProc.StandardInput
 }
@@ -1116,10 +1116,12 @@ $script:doRestart = {
     Stop-AllServerProcesses
     Start-Sleep -Milliseconds 1500
     Start-ServerProcess
-    $script:StartTime = [DateTime]::Now
-    $script:logPosition = 0L
+    $script:StartTime      = [DateTime]::Now
+    $script:logPosition    = 0L
     $script:logBuffer.Clear()
     $script:onlinePlayers.Clear()
+    $script:PrevCpuTime    = $script:ServerProc.TotalProcessorTime
+    $script:PrevCpuCheck   = [DateTime]::Now
     Set-UIRunning
     Add-ConsoleEntry "Server restarted."
     Log "Server restarted."
@@ -1150,7 +1152,9 @@ $BtnStart.Add_Click({
         $script:logBuffer.Clear()
         $script:onlinePlayers.Clear()
         Start-ServerProcess
-        $script:StartTime = [DateTime]::Now
+        $script:StartTime    = [DateTime]::Now
+        $script:PrevCpuTime  = $script:ServerProc.TotalProcessorTime
+        $script:PrevCpuCheck = [DateTime]::Now
         Set-UIRunning
         Add-ConsoleEntry "Server starting..."
         Log "Server started."
@@ -1583,7 +1587,7 @@ $BtnInstall.Add_Click({
 
 # ---- WATCHDOG TIMER ----
 $script:watchdog = [System.Windows.Threading.DispatcherTimer]::new()
-$script:watchdog.Interval = [TimeSpan]::FromSeconds(10)
+$script:watchdog.Interval = [TimeSpan]::FromSeconds(3)
 $script:watchdog.Add_Tick({
     $proc       = Get-ServerProcess
     $uiRunning  = ($TxtStatus.Text.Trim() -eq "Running")
@@ -1629,6 +1633,55 @@ $script:logTailTimer.Add_Tick({ Update-LogViewer })
 # ---- INITIAL STATE ----
 $TxtInstallDest.Text = $ServerDir
 $TxtCurrentVersion.Text = "Current version: $AppVersion"
+
+# ---- PLAYER LIST CONTEXT MENU ----
+$playerMenu     = [System.Windows.Controls.ContextMenu]::new()
+$menuKick       = [System.Windows.Controls.MenuItem]::new()
+$menuKick.Header = "Kick Player"
+$menuBan        = [System.Windows.Controls.MenuItem]::new()
+$menuBan.Header  = "Ban Player"
+$playerMenu.Items.Add($menuKick) | Out-Null
+$playerMenu.Items.Add($menuBan)  | Out-Null
+$PlayerList.ContextMenu = $playerMenu
+
+$playerMenu.Add_Opened({
+    $hasSelection = ($PlayerList.SelectedItem -ne $null)
+    $menuKick.IsEnabled = $hasSelection
+    $menuBan.IsEnabled  = $hasSelection
+    if ($hasSelection) {
+        $menuKick.Header = "Kick $($PlayerList.SelectedItem)"
+        $menuBan.Header  = "Ban $($PlayerList.SelectedItem)"
+    } else {
+        $menuKick.Header = "Kick Player"
+        $menuBan.Header  = "Ban Player"
+    }
+})
+
+$menuKick.Add_Click({
+    $playerName = $PlayerList.SelectedItem
+    if (-not $playerName) { return }
+    if ($script:ServerStdin) {
+        $script:ServerStdin.WriteLine("kick $playerName")
+        $script:ServerStdin.Flush()
+        Add-ConsoleEntry "kick $playerName" $true
+        Log "Kick sent: $playerName"
+    } else { Log "Server stdin not available." }
+})
+
+$menuBan.Add_Click({
+    $playerName = $PlayerList.SelectedItem
+    if (-not $playerName) { return }
+    $confirm = [System.Windows.MessageBox]::Show(
+        "Ban player '$playerName'?`nThis will kick them and prevent reconnection.",
+        "Confirm Ban", "YesNo", "Warning")
+    if ($confirm -ne "Yes") { return }
+    if ($script:ServerStdin) {
+        $script:ServerStdin.WriteLine("ban $playerName")
+        $script:ServerStdin.Flush()
+        Add-ConsoleEntry "ban $playerName" $true
+        Log "Ban sent: $playerName"
+    } else { Log "Server stdin not available." }
+})
 Read-ServerConfig
 Read-WorldConfig
 Load-History
