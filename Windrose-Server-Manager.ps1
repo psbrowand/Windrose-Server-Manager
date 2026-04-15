@@ -232,7 +232,7 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                     <ColumnDefinition Width="40"/>
                   </Grid.ColumnDefinitions>
                   <TextBlock Grid.Column="0" Text="Max Players" Style="{StaticResource FieldLabel}"/>
-                  <Slider x:Name="CfgMaxPlayers" Grid.Column="1" Minimum="1" Maximum="10"
+                  <Slider x:Name="CfgMaxPlayers" Grid.Column="1" Minimum="1" Maximum="20"
                           TickFrequency="1" IsSnapToTickEnabled="True" Value="4"
                           VerticalAlignment="Center"/>
                   <TextBlock x:Name="TxtMaxPlayersVal" Grid.Column="2" Text="4"
@@ -683,6 +683,7 @@ $script:countdownSecs   = 0
 $script:countdownAction = $null
 $script:logBuffer       = [System.Collections.Generic.List[string]]::new()
 $script:logPosition     = 0L
+$script:onlinePlayers   = [System.Collections.Generic.HashSet[string]]::new()
 $script:logFilter       = "All"
 $script:scheduleFired   = $false
 $script:lastScheduleDate= $null
@@ -855,13 +856,19 @@ function Update-LogViewer {
             if ($low -match 'lognet: join succeeded:') {
                 $playerName = ""
                 if ($line -match 'Join succeeded:\s*(.+)') { $playerName = $Matches[1].Trim() }
-                $entry = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm')] JOINED: $playerName"
-                Add-History $entry
+                if ($playerName) {
+                    $script:onlinePlayers.Add($playerName) | Out-Null
+                    $entry = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm')] JOINED: $playerName"
+                    Add-History $entry
+                }
             } elseif ($low -match 'lognet: leave:') {
                 $playerName = ""
                 if ($line -match 'Leave:\s*(.+)') { $playerName = $Matches[1].Trim() }
-                $entry = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm')] LEFT: $playerName"
-                Add-History $entry
+                if ($playerName) {
+                    $script:onlinePlayers.Remove($playerName) | Out-Null
+                    $entry = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm')] LEFT: $playerName"
+                    Add-History $entry
+                }
             }
         }
         if ($script:logBuffer.Count -gt 1000) {
@@ -929,23 +936,31 @@ function Add-ConsoleEntry($text, $isCommand = $false) {
 }
 
 function Read-PlayerList {
+    # Rebuilds $script:onlinePlayers by replaying the full log.
+    # Uses FileShare.ReadWrite so it works while the server has the log open.
     $online = [System.Collections.Generic.HashSet[string]]::new()
     if (-not (Test-Path $LogPath)) { return @() }
     try {
-        $lines = [System.IO.File]::ReadAllLines($LogPath)
-        foreach ($line in $lines) {
+        $fs = [System.IO.FileStream]::new($LogPath,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::ReadWrite)
+        $reader = [System.IO.StreamReader]::new($fs)
+        while (-not $reader.EndOfStream) {
+            $line = $reader.ReadLine()
+            if ($null -eq $line) { continue }
             $low = $line.ToLower()
             if ($low -match 'lognet: join succeeded:') {
-                if ($line -match 'Join succeeded:\s*(.+)') {
-                    $online.Add($Matches[1].Trim()) | Out-Null
-                }
+                if ($line -match 'Join succeeded:\s*(.+)') { $online.Add($Matches[1].Trim()) | Out-Null }
             } elseif ($low -match 'lognet: leave:') {
-                if ($line -match 'Leave:\s*(.+)') {
-                    $online.Remove($Matches[1].Trim()) | Out-Null
-                }
+                if ($line -match 'Leave:\s*(.+)') { $online.Remove($Matches[1].Trim()) | Out-Null }
             }
         }
+        $reader.Dispose()
+        $fs.Dispose()
     } catch {}
+    $script:onlinePlayers.Clear()
+    foreach ($p in $online) { $script:onlinePlayers.Add($p) | Out-Null }
     return @($online)
 }
 
@@ -988,10 +1003,9 @@ function Update-Stats {
             $TxtRam.Text = "$ramMb MB"
         }
 
-        $players = Read-PlayerList
         $PlayerList.Items.Clear()
-        foreach ($p in $players) { $PlayerList.Items.Add($p) | Out-Null }
-        $TxtPlayers.Text = "$($players.Count) / $($script:MaxPlayers)"
+        foreach ($p in $script:onlinePlayers) { $PlayerList.Items.Add($p) | Out-Null }
+        $TxtPlayers.Text = "$($script:onlinePlayers.Count) / $($script:MaxPlayers)"
 
         if ($script:StartTime) {
             $up = [DateTime]::Now - $script:StartTime
@@ -1085,6 +1099,7 @@ $script:doRestart = {
     $script:StartTime = [DateTime]::Now
     $script:logPosition = 0L
     $script:logBuffer.Clear()
+    $script:onlinePlayers.Clear()
     Set-UIRunning
     Add-ConsoleEntry "Server restarted."
     Log "Server restarted."
@@ -1113,6 +1128,7 @@ $BtnStart.Add_Click({
     try {
         $script:logPosition = 0L
         $script:logBuffer.Clear()
+        $script:onlinePlayers.Clear()
         Start-ServerProcess
         $script:StartTime = [DateTime]::Now
         Set-UIRunning
