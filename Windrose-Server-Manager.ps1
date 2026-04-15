@@ -1,7 +1,7 @@
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
-$AppVersion  = 5
+$AppVersion  = 6
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $ServerDir      = $PSScriptRoot
@@ -1111,7 +1111,7 @@ function Start-ServerProcess {
     } else {
         $psi.FileName = $ServerExe
     }
-    $psi.Arguments             = "-log"
+    $psi.Arguments             = ""
     $psi.WorkingDirectory      = $ServerDir
     $psi.UseShellExecute       = $false
     $psi.RedirectStandardInput = $true
