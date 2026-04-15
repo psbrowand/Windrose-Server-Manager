@@ -86,10 +86,14 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = "1.22"
+$AppVersion  = "1.23"
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $PatchNotes = [ordered]@{
+    "1.23" = @(
+        "Settings now persist between launches (auto-restart, save on stop, auto-backup, schedule, countdown)",
+        "Added Export Logs button to the Log tab -- saves full server log to a file"
+    )
     "1.22" = @(
         "Added tooltips to all World Settings -- hover over any slider label, preset, or checkbox for a description",
         "Tooltips styled to match the app's dark theme",
@@ -182,6 +186,7 @@ $LogPath     = "$ServerDir\R5\Saved\Logs\R5.log"
 $SavesBase   = "$ServerDir\R5\Saved\SaveProfiles"
 $BackupDir   = "$ServerDir\Backups"
 $HistoryFile = "$ServerDir\player_history.txt"
+$SettingsFile = "$ServerDir\manager_settings.json"
 if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Force | Out-Null }
 
 [xml]$Xaml = @'
@@ -414,8 +419,12 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                        ToolTip="Click to copy invite code"/>
           </StackPanel>
         </StackPanel>
-        <Button x:Name="BtnShare" Grid.Column="1" Content="Share" VerticalAlignment="Center"
-                Background="#1A4A7A" Style="{StaticResource SmallBtn}"/>
+        <StackPanel Grid.Column="1" VerticalAlignment="Center" HorizontalAlignment="Right">
+          <Button x:Name="BtnShare" Content="Share"
+                  Background="#1A4A7A" Style="{StaticResource SmallBtn}" HorizontalAlignment="Stretch"/>
+          <TextBlock x:Name="TxtDonateLinkHeader" Text="Buy me a coffee" FontSize="10" Foreground="#607080"
+                     HorizontalAlignment="Center" Cursor="Hand" TextDecorations="Underline" Margin="0,4,0,0"/>
+        </StackPanel>
       </Grid>
     </Border>
     <!-- TABS -->
@@ -713,6 +722,7 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
             <Button x:Name="BtnFErrors" Content="Errors" Background="#2A3E55" Style="{StaticResource SmallBtn}"/>
             <CheckBox x:Name="ChkAutoScroll" Content="Auto-scroll" Style="{StaticResource DarkCheck}"
                       IsChecked="True" Margin="16,0,0,0" VerticalAlignment="Center"/>
+            <Button x:Name="BtnExportLogs" Content="Export Logs" Background="#2A3E55" Style="{StaticResource SmallBtn}" Margin="16,0,0,0"/>
           </StackPanel>
           <ListBox x:Name="LogViewer" Grid.Row="1" FontFamily="Consolas" FontSize="11"
                    VirtualizingStackPanel.IsVirtualizing="True"
@@ -1124,6 +1134,7 @@ $BtnFWarn        = Ctrl 'BtnFWarn'
 $BtnFErrors      = Ctrl 'BtnFErrors'
 $ChkAutoScroll   = Ctrl 'ChkAutoScroll'
 $LogViewer       = Ctrl 'LogViewer'
+$BtnExportLogs   = Ctrl 'BtnExportLogs'
 $ConsoleOutput   = Ctrl 'ConsoleOutput'
 $BtnCmdSave      = Ctrl 'BtnCmdSave'
 $BtnCmdPlayers   = Ctrl 'BtnCmdPlayers'
@@ -1143,7 +1154,8 @@ $TxtScheduleTime = Ctrl 'TxtScheduleTime'
 $TxtCountdown    = Ctrl 'TxtCountdown'
 $HistoryList     = Ctrl 'HistoryList'
 $BtnClearHistory = Ctrl 'BtnClearHistory'
-$TxtDonateLink   = Ctrl 'TxtDonateLink'
+$TxtDonateLink       = Ctrl 'TxtDonateLink'
+$TxtDonateLinkHeader = Ctrl 'TxtDonateLinkHeader'
 $TxtCurrentVersion = Ctrl 'TxtCurrentVersion'
 $BtnCheckUpdate  = Ctrl 'BtnCheckUpdate'
 $BtnUpdate       = Ctrl 'BtnUpdate'
@@ -1603,6 +1615,36 @@ function Load-History {
             foreach ($l in $lines) { $HistoryList.Items.Add($l) | Out-Null }
         } catch {}
     }
+}
+
+function Save-ManagerSettings {
+    try {
+        $settings = [ordered]@{
+            AutoRestart     = ($ChkAutoRestart.IsChecked -eq $true)
+            SaveOnStop      = ($ChkSaveOnStop.IsChecked -eq $true)
+            AutoBackup      = ($ChkAutoBackup.IsChecked -eq $true)
+            BackupInterval  = $CmbBackupInterval.SelectedIndex
+            ScheduleEnabled = ($ChkSchedule.IsChecked -eq $true)
+            ScheduleTime    = $TxtScheduleTime.Text
+            CountdownSecs   = $TxtCountdown.Text
+        }
+        $settings | ConvertTo-Json | Set-Content $SettingsFile -Encoding UTF8
+    } catch { Log "Settings save error: $_" }
+}
+
+function Load-ManagerSettings {
+    if (-not (Test-Path $SettingsFile)) { return }
+    try {
+        $s = Get-Content $SettingsFile -Raw | ConvertFrom-Json
+        if ($null -ne $s.AutoRestart)     { $ChkAutoRestart.IsChecked     = $s.AutoRestart }
+        if ($null -ne $s.SaveOnStop)      { $ChkSaveOnStop.IsChecked      = $s.SaveOnStop }
+        if ($null -ne $s.BackupInterval)  { $CmbBackupInterval.SelectedIndex = [int]$s.BackupInterval }
+        if ($null -ne $s.ScheduleEnabled) { $ChkSchedule.IsChecked        = $s.ScheduleEnabled }
+        if ($s.ScheduleTime)              { $TxtScheduleTime.Text         = $s.ScheduleTime }
+        if ($s.CountdownSecs)             { $TxtCountdown.Text            = $s.CountdownSecs }
+        # Load auto-backup last so the interval is already set
+        if ($null -ne $s.AutoBackup)      { $ChkAutoBackup.IsChecked      = $s.AutoBackup }
+    } catch { Log "Settings load error: $_" }
 }
 
 function Update-Stats {
@@ -2113,6 +2155,26 @@ $BtnFPlayers.Add_Click({ Set-LogFilter "Players" $BtnFPlayers })
 $BtnFWarn.Add_Click({    Set-LogFilter "Warn"    $BtnFWarn })
 $BtnFErrors.Add_Click({  Set-LogFilter "Errors"  $BtnFErrors })
 
+$BtnExportLogs.Add_Click({
+    $dlg = [Microsoft.Win32.SaveFileDialog]::new()
+    $dlg.Title      = "Export Server Logs"
+    $dlg.Filter     = "Log files (*.log)|*.log|Text files (*.txt)|*.txt|All files (*.*)|*.*"
+    $dlg.FileName   = "Windrose-Log_$(Get-Date -Format 'yyyy-MM-dd_HH-mm-ss').log"
+    $dlg.DefaultExt = ".log"
+    if ($dlg.ShowDialog() -eq $true) {
+        try {
+            if (Test-Path $LogPath) {
+                Copy-Item $LogPath $dlg.FileName -Force
+                Log "Logs exported to: $($dlg.FileName)"
+            } else {
+                # Fall back to in-memory buffer if log file not found
+                $script:logBuffer | Set-Content -Path $dlg.FileName -Encoding UTF8
+                Log "Logs exported from buffer to: $($dlg.FileName)"
+            }
+        } catch { Log "Export error: $_" }
+    }
+})
+
 # Console tab
 $BtnSendCmd.Add_Click({
     $cmd = $TxtCommand.Text.Trim()
@@ -2207,10 +2269,14 @@ $BtnClearHistory.Add_Click({
     Log "History cleared."
 })
 
-# Donation link
-$TxtDonateLink.Add_MouseLeftButtonUp({ Start-Process "https://buymeacoffee.com/psbrowand" })
-$TxtDonateLink.Add_MouseEnter({ $TxtDonateLink.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xD4,0xA8,0x43)) })
-$TxtDonateLink.Add_MouseLeave({ $TxtDonateLink.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x60,0x70,0x80)) })
+# Donation links
+$script:BrushDonateHover  = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xD4,0xA8,0x43)); $script:BrushDonateHover.Freeze()
+$script:BrushDonateNormal = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x60,0x70,0x80)); $script:BrushDonateNormal.Freeze()
+foreach ($link in @($TxtDonateLink, $TxtDonateLinkHeader)) {
+    $link.Add_MouseLeftButtonUp({ Start-Process "https://buymeacoffee.com/psbrowand" })
+    $link.Add_MouseEnter({ $this.Foreground = $script:BrushDonateHover })
+    $link.Add_MouseLeave({ $this.Foreground = $script:BrushDonateNormal })
+}
 
 # Update tab
 $script:latestVersion        = $null
@@ -2648,6 +2714,7 @@ $menuBan.Add_Click({
 Read-ServerConfig
 Read-WorldConfig
 Load-History
+Load-ManagerSettings
 
 # Check last backup
 $lastZip = Get-ChildItem "$BackupDir\Backup_*.zip" -ErrorAction SilentlyContinue | Sort-Object LastWriteTime -Descending | Select-Object -First 1
@@ -2685,4 +2752,5 @@ if ($existingProc) {
 $script:watchdog.Start()
 $script:logTailTimer.Start()
 
+$Window.Add_Closing({ Save-ManagerSettings })
 $Window.ShowDialog() | Out-Null
