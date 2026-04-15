@@ -86,11 +86,13 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = "1.21"
+$AppVersion  = "1.22"
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $PatchNotes = [ordered]@{
-    "1.21" = @(
+    "1.22" = @(
+        "Added tooltips to all World Settings -- hover over any slider label, preset, or checkbox for a description",
+        "Tooltips styled to match the app's dark theme",
         "Moved Player History from Tools tab to Dashboard -- now side-by-side with Connected Players",
         "Dashboard split into two-column layout: Connected Players (left) and Player History (right)"
     )
@@ -321,6 +323,15 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
       <Setter Property="FontSize" Value="12"/>
       <Setter Property="VerticalAlignment" Value="Center"/>
       <Setter Property="Margin" Value="0,0,8,0"/>
+    </Style>
+    <Style TargetType="ToolTip">
+      <Setter Property="Background" Value="#1A2A3A"/>
+      <Setter Property="Foreground" Value="#C0CDD8"/>
+      <Setter Property="BorderBrush" Value="#2A4A6A"/>
+      <Setter Property="BorderThickness" Value="1"/>
+      <Setter Property="Padding" Value="8,5"/>
+      <Setter Property="FontSize" Value="12"/>
+      <Setter Property="MaxWidth" Value="300"/>
     </Style>
     <Style TargetType="TabControl">
       <Setter Property="Background" Value="#0F1923"/>
@@ -554,7 +565,8 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                     <ColumnDefinition Width="120"/>
                     <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
-                  <TextBlock Grid.Column="0" Text="Difficulty Preset" Style="{StaticResource FieldLabel}"/>
+                  <TextBlock Grid.Column="0" Text="Difficulty Preset" Style="{StaticResource FieldLabel}"
+                             ToolTip="Overall difficulty preset. Easy/Medium/Hard apply fixed values to all sliders. Custom lets you tune each setting individually."/>
                   <ComboBox x:Name="CfgPreset" Grid.Column="1" Style="{StaticResource DarkCombo}">
                     <ComboBoxItem Content="Easy"/>
                     <ComboBoxItem Content="Medium"/>
@@ -571,7 +583,8 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                           <ColumnDefinition Width="*"/>
                           <ColumnDefinition Width="45"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Mob Health" Style="{StaticResource FieldLabel}"/>
+                        <TextBlock Grid.Column="0" Text="Mob Health" Style="{StaticResource FieldLabel}"
+                                   ToolTip="Multiplier for enemy creature health. Higher values make mobs tougher to kill."/>
                         <Slider x:Name="SlMobHealth" Grid.Column="1" Minimum="0.2" Maximum="5.0"
                                 TickFrequency="0.1" Value="1.0" VerticalAlignment="Center"/>
                         <TextBlock x:Name="ValMobHealth" Grid.Column="2" Text="1.0"
@@ -583,7 +596,8 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                           <ColumnDefinition Width="*"/>
                           <ColumnDefinition Width="45"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Mob Damage" Style="{StaticResource FieldLabel}"/>
+                        <TextBlock Grid.Column="0" Text="Mob Damage" Style="{StaticResource FieldLabel}"
+                                   ToolTip="Multiplier for damage dealt by enemy creatures. Higher values make mobs hit harder."/>
                         <Slider x:Name="SlMobDamage" Grid.Column="1" Minimum="0.2" Maximum="5.0"
                                 TickFrequency="0.1" Value="1.0" VerticalAlignment="Center"/>
                         <TextBlock x:Name="ValMobDamage" Grid.Column="2" Text="1.0"
@@ -595,7 +609,8 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                           <ColumnDefinition Width="*"/>
                           <ColumnDefinition Width="45"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Ship Health" Style="{StaticResource FieldLabel}"/>
+                        <TextBlock Grid.Column="0" Text="Ship Health" Style="{StaticResource FieldLabel}"
+                                   ToolTip="Multiplier for enemy ship hull strength. Higher values make enemy ships harder to sink."/>
                         <Slider x:Name="SlShipHealth" Grid.Column="1" Minimum="0.4" Maximum="5.0"
                                 TickFrequency="0.1" Value="1.0" VerticalAlignment="Center"/>
                         <TextBlock x:Name="ValShipHealth" Grid.Column="2" Text="1.0"
@@ -607,7 +622,8 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                           <ColumnDefinition Width="*"/>
                           <ColumnDefinition Width="45"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Ship Damage" Style="{StaticResource FieldLabel}"/>
+                        <TextBlock Grid.Column="0" Text="Ship Damage" Style="{StaticResource FieldLabel}"
+                                   ToolTip="Multiplier for damage dealt by enemy ships. Higher values mean enemy cannons hit harder."/>
                         <Slider x:Name="SlShipDamage" Grid.Column="1" Minimum="0.2" Maximum="2.5"
                                 TickFrequency="0.1" Value="1.0" VerticalAlignment="Center"/>
                         <TextBlock x:Name="ValShipDamage" Grid.Column="2" Text="1.0"
@@ -619,7 +635,8 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                           <ColumnDefinition Width="*"/>
                           <ColumnDefinition Width="45"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Boarding" Style="{StaticResource FieldLabel}"/>
+                        <TextBlock Grid.Column="0" Text="Boarding" Style="{StaticResource FieldLabel}"
+                                   ToolTip="Multiplier for boarding encounter difficulty. Higher values spawn more or tougher enemies during boarding events."/>
                         <Slider x:Name="SlBoarding" Grid.Column="1" Minimum="0.2" Maximum="5.0"
                                 TickFrequency="0.1" Value="1.0" VerticalAlignment="Center"/>
                         <TextBlock x:Name="ValBoarding" Grid.Column="2" Text="1.0"
@@ -631,7 +648,8 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                           <ColumnDefinition Width="*"/>
                           <ColumnDefinition Width="45"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Coop Stats" Style="{StaticResource FieldLabel}"/>
+                        <TextBlock Grid.Column="0" Text="Coop Stats" Style="{StaticResource FieldLabel}"
+                                   ToolTip="Scaling multiplier for enemy stats in co-op. Higher values make enemies scale more aggressively with additional players."/>
                         <Slider x:Name="SlCoopStats" Grid.Column="1" Minimum="0.0" Maximum="2.0"
                                 TickFrequency="0.1" Value="1.0" VerticalAlignment="Center"/>
                         <TextBlock x:Name="ValCoopStats" Grid.Column="2" Text="1.0"
@@ -643,7 +661,8 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                           <ColumnDefinition Width="*"/>
                           <ColumnDefinition Width="45"/>
                         </Grid.ColumnDefinitions>
-                        <TextBlock Grid.Column="0" Text="Coop Ship" Style="{StaticResource FieldLabel}"/>
+                        <TextBlock Grid.Column="0" Text="Coop Ship" Style="{StaticResource FieldLabel}"
+                                   ToolTip="Scaling multiplier for enemy ship strength in co-op. Higher values make enemy ships tougher when multiple players are present."/>
                         <Slider x:Name="SlCoopShip" Grid.Column="1" Minimum="0.0" Maximum="2.0"
                                 TickFrequency="0.1" Value="1.0" VerticalAlignment="Center"/>
                         <TextBlock x:Name="ValCoopShip" Grid.Column="2" Text="1.0"
@@ -657,15 +676,18 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                     <ColumnDefinition Width="120"/>
                     <ColumnDefinition Width="*"/>
                   </Grid.ColumnDefinitions>
-                  <TextBlock Grid.Column="0" Text="Combat Diff." Style="{StaticResource FieldLabel}"/>
+                  <TextBlock Grid.Column="0" Text="Combat Diff." Style="{StaticResource FieldLabel}"
+                             ToolTip="Overall combat difficulty level. Affects how challenging enemy encounters feel independent of the individual sliders above."/>
                   <ComboBox x:Name="CfgCombatDiff" Grid.Column="1" Style="{StaticResource DarkCombo}">
                     <ComboBoxItem Content="Easy"/>
                     <ComboBoxItem Content="Normal"/>
                     <ComboBoxItem Content="Hard"/>
                   </ComboBox>
                 </Grid>
-                <CheckBox x:Name="CfgCoopQuests" Content="Coop Quests" Style="{StaticResource DarkCheck}"/>
-                <CheckBox x:Name="CfgEasyExplore" Content="Easy Exploration" Style="{StaticResource DarkCheck}"/>
+                <CheckBox x:Name="CfgCoopQuests" Content="Coop Quests" Style="{StaticResource DarkCheck}"
+                          ToolTip="When enabled, quest objectives and progress are shared among all crew members."/>
+                <CheckBox x:Name="CfgEasyExplore" Content="Easy Exploration" Style="{StaticResource DarkCheck}"
+                          ToolTip="When enabled, reduces hazards and threats during exploration, making the open world more forgiving."/>
               </StackPanel>
             </Border>
             <StackPanel Orientation="Horizontal" Margin="0,12,0,0">
@@ -802,6 +824,10 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                 </StackPanel>
               </StackPanel>
             </Border>
+            <TextBlock x:Name="TxtDonateLink" Margin="0,12,0,8" HorizontalAlignment="Center"
+                       FontSize="12" Foreground="#607080" Cursor="Hand"
+                       Text="Like the app? Buy me a coffee"
+                       TextDecorations="Underline"/>
           </StackPanel>
         </ScrollViewer>
       </TabItem>
@@ -1117,6 +1143,7 @@ $TxtScheduleTime = Ctrl 'TxtScheduleTime'
 $TxtCountdown    = Ctrl 'TxtCountdown'
 $HistoryList     = Ctrl 'HistoryList'
 $BtnClearHistory = Ctrl 'BtnClearHistory'
+$TxtDonateLink   = Ctrl 'TxtDonateLink'
 $TxtCurrentVersion = Ctrl 'TxtCurrentVersion'
 $BtnCheckUpdate  = Ctrl 'BtnCheckUpdate'
 $BtnUpdate       = Ctrl 'BtnUpdate'
@@ -2179,6 +2206,11 @@ $BtnClearHistory.Add_Click({
     if (Test-Path $HistoryFile) { Remove-Item $HistoryFile -Force }
     Log "History cleared."
 })
+
+# Donation link
+$TxtDonateLink.Add_MouseLeftButtonUp({ Start-Process "https://buymeacoffee.com/psbrowand" })
+$TxtDonateLink.Add_MouseEnter({ $TxtDonateLink.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xD4,0xA8,0x43)) })
+$TxtDonateLink.Add_MouseLeave({ $TxtDonateLink.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x60,0x70,0x80)) })
 
 # Update tab
 $script:latestVersion        = $null
