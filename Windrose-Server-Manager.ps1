@@ -21,7 +21,7 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = 8
+$AppVersion  = 9
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $ServerDir      = $PSScriptRoot
@@ -797,8 +797,8 @@ function Read-ServerConfig {
         }
         if ($inner.PSObject.Properties['MaxPlayerCount']) {
             $val = [double]$inner.MaxPlayerCount
-            if ($val -lt 1) { $val = 1 }
-            if ($val -gt 10) { $val = 10 }
+            if ($val -lt 1)  { $val = 1  }
+            if ($val -gt 20) { $val = 20 }
             $CfgMaxPlayers.Value = $val
             $script:MaxPlayers = [int]$val
             $TxtMaxPlayersVal.Text = "$([int]$val)"
