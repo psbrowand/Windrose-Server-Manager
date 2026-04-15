@@ -21,7 +21,7 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = "1.12"
+$AppVersion  = "1.13"
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $ServerDir      = $PSScriptRoot
@@ -1788,14 +1788,20 @@ $BtnClearHistory.Add_Click({
 })
 
 # Update tab
-$script:latestVersion   = $null
-$script:latestContent   = $null
+$script:latestVersion        = $null
+$script:latestContent        = $null
+$script:updateDownloadJob    = $null
+$script:updateDownloadTimer  = $null
 
 $BtnCheckUpdate.Add_Click({
     $TxtUpdateStatus.Text = "Checking for updates..."
     $TxtUpdateStatus.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x8D,0xA4,0xB5))
     $BtnUpdate.Visibility = "Collapsed"
+    $BtnUpdate.IsEnabled = $true   # reset in case a previous download got stuck
     $BtnCheckUpdate.IsEnabled = $false
+    # cancel any in-progress download
+    if ($script:updateDownloadTimer -ne $null) { $script:updateDownloadTimer.Stop(); $script:updateDownloadTimer = $null }
+    if ($script:updateDownloadJob  -ne $null) { Remove-Job $script:updateDownloadJob -Force -ErrorAction SilentlyContinue; $script:updateDownloadJob = $null }
     $script:updateCheckJob = Start-Job -ScriptBlock {
         param($url)
         try {
@@ -1850,49 +1856,53 @@ $BtnUpdate.Add_Click({
     $BtnUpdate.IsEnabled = $false
     $TxtUpdateStatus.Text = "Downloading update..."
     $TxtUpdateStatus.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x8D,0xA4,0xB5))
-    # Fresh download at click time -- avoids large-object job serialisation issues
-    $updateJob = Start-Job -ScriptBlock {
+    # Use script-scope so the timer closure can see the job variable
+    if ($script:updateDownloadTimer -ne $null) { $script:updateDownloadTimer.Stop(); $script:updateDownloadTimer = $null }
+    if ($script:updateDownloadJob  -ne $null) { Remove-Job $script:updateDownloadJob -Force -ErrorAction SilentlyContinue; $script:updateDownloadJob = $null }
+    $script:updateDownloadJob = Start-Job -ScriptBlock {
         param($url)
         try {
             $wc = [System.Net.WebClient]::new()
             $wc.Headers.Add("User-Agent","Windrose-Server-Manager")
-            return @{ Content = $wc.DownloadString($url); Error = $null }
+            $wc.DownloadString($url)   # output directly -- no hashtable wrapper avoids serialisation issues
         } catch {
-            return @{ Content = $null; Error = $_.ToString() }
+            "##ERROR##$($_.ToString())"
         }
     } -ArgumentList $UpdateUrl
-    $dlTimer = [System.Windows.Threading.DispatcherTimer]::new()
-    $dlTimer.Interval = [TimeSpan]::FromSeconds(1)
-    $dlTimer.Add_Tick({
-        $job = $updateJob
+    $script:updateDownloadTimer = [System.Windows.Threading.DispatcherTimer]::new()
+    $script:updateDownloadTimer.Interval = [TimeSpan]::FromSeconds(1)
+    $script:updateDownloadTimer.Add_Tick({
+        $job = $script:updateDownloadJob
         if ($job -eq $null -or $job.State -eq 'Running') { return }
-        $dlTimer.Stop()
-        $res = Receive-Job $job -ErrorAction SilentlyContinue
+        $script:updateDownloadTimer.Stop()
+        $script:updateDownloadTimer = $null
+        $content = Receive-Job $job -ErrorAction SilentlyContinue
         Remove-Job $job -ErrorAction SilentlyContinue
+        $script:updateDownloadJob = $null
         $BtnUpdate.IsEnabled = $true
-        if ($res -and $res.Error) {
-            $TxtUpdateStatus.Text = "Download failed: $($res.Error)"
+        if (-not $content) {
+            $TxtUpdateStatus.Text = "Download returned empty content. Check your connection."
             $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::Tomato
             return
         }
-        if ($res -and $res.Content) {
-            try {
-                $dest = "$ServerDir\Windrose-Server-Manager.ps1"
-                [System.IO.File]::WriteAllText($dest, $res.Content, [System.Text.Encoding]::UTF8)
-                $BtnUpdate.Visibility = "Collapsed"
-                $TxtUpdateStatus.Text = "Updated to version $($script:latestVersion). Close and relaunch to apply."
-                $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::LightGreen
-                Log "App updated to $($script:latestVersion) -- restart to apply."
-            } catch {
-                $TxtUpdateStatus.Text = "Failed to write file: $_"
-                $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::Tomato
-            }
-        } else {
-            $TxtUpdateStatus.Text = "Download returned empty content."
+        if ($content -like "##ERROR##*") {
+            $TxtUpdateStatus.Text = "Download failed: $($content -replace '^##ERROR##','')"
+            $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::Tomato
+            return
+        }
+        try {
+            $dest = "$ServerDir\Windrose-Server-Manager.ps1"
+            [System.IO.File]::WriteAllText($dest, $content, [System.Text.Encoding]::UTF8)
+            $BtnUpdate.Visibility = "Collapsed"
+            $TxtUpdateStatus.Text = "Updated to version $($script:latestVersion). Close and relaunch to apply."
+            $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::LightGreen
+            Log "App updated to $($script:latestVersion) -- restart to apply."
+        } catch {
+            $TxtUpdateStatus.Text = "Failed to write file: $_"
             $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::Tomato
         }
     })
-    $dlTimer.Start()
+    $script:updateDownloadTimer.Start()
 })
 
 # Install tab
