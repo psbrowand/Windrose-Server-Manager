@@ -11,14 +11,18 @@ A local GUI application for running and managing a [Windrose](https://store.stea
 - **One-click Start / Stop / Restart** with configurable countdown warning before restart
 - **Live dashboard** — CPU usage, RAM, player count, uptime, and connected player list
 - **Live log viewer** — color-coded, filterable (All / Players / Warnings / Errors) with auto-scroll
-- **Console command input** — send commands directly to the server process (Save World, List Players, custom commands)
+- **Console command input** — send commands directly to the server via Win32 console injection (save world, list players, kick, ban, and more)
 - **Config editor** — edit server name, max players, password, and all world difficulty settings (preset or custom sliders) without touching JSON files
 - **One-click world backup** — zips your save data to a timestamped archive
+- **Auto-backup** — schedule automatic backups at 1, 4, 8, 16, or 24-hour intervals
+- **Save on Stop** — optionally saves the world before stopping the server
 - **Scheduled daily restart** — set a time; manager restarts the server automatically
 - **Auto-restart on crash** — watchdog detects unexpected exits and relaunches automatically
 - **Player history** — persistent log of who joined and left
 - **Invite code share** — copies a ready-to-send message to clipboard
-- **Install wizard** — auto-detects Windrose in your Steam library and installs the dedicated server with one click
+- **Self-updater** — checks GitHub for new versions and updates in-place
+- **Install wizard** — 5-step setup that auto-detects Windrose in your Steam library and installs the dedicated server
+- **Patch notes** — built-in version history viewable from the Tools tab
 
 ---
 
@@ -57,29 +61,34 @@ If you already set up a Windrose server in this folder, just run `Launch.vbs` an
 
 | Tab | What it does |
 |---|---|
-| **Dashboard** | Live stats, player list, auto-restart toggle |
+| **Dashboard** | Live stats, player list, auto-restart toggle, save-on-stop option |
 | **Config** | Edit `ServerDescription.json` and `WorldDescription.json` via form fields and sliders |
-| **Log** | Live-tailing server log with color coding and filters |
-| **Console** | Send console commands to the running server |
-| **Tools** | Backup, scheduled restart, restart countdown, player history |
-| **Install** | Detect and copy server files from your Steam installation |
+| **Log** | Live-tailing server log with color coding and filters (All / Players / Warnings / Errors) |
+| **Console** | Send console commands to the running server, with quick-access buttons and live output |
+| **Tools** | Manual and auto backup, scheduled restart, restart countdown, player history, patch notes |
+| **Update** | Check for new versions and update the manager from GitHub |
+| **Install** | 5-step wizard to detect and copy server files from your Steam installation |
 
 ---
 
 ## Console Commands
 
-From the **Console** tab you can type any Unreal Engine console command and send it to the server. Useful built-in commands:
+From the **Console** tab you can type Windrose server commands and send them to the running server. Quick-access buttons are provided for the most common commands:
 
 | Button / Command | Effect |
 |---|---|
-| Save World | Force-saves the world (`SaveWorld`) |
-| List Players | Prints connected players to the log (`listplayers`) |
-| Server Info | Prints frame/unit stats (`stat unit`) |
-| Quit Server | Gracefully shuts down the server (`quit`) |
+| `save world` | Force-saves the world |
+| `list players` | Prints connected players to the log |
+| `logs` | Shows server log output |
+| `quit` | Gracefully shuts down the server |
 | `kick <name>` | Kicks a player by name |
-| `servertravel <map>` | Travels to a different map |
+| `ban <name>` | Bans a player by name |
+| `reload world` | Reloads WorldDescription.json |
+| `debug on` / `debug off` | Toggles debug output |
 
-> Console commands are sent via stdin to the server process. Not all commands may be available depending on the server build.
+You can also right-click a player in the Dashboard player list to kick or ban them directly.
+
+> Commands are delivered to the server via Win32 console input injection. The server must be started from the manager for this to work.
 
 ---
 
@@ -98,9 +107,11 @@ The manager edits these files on your behalf (always stops the server first):
 
 ## Backups
 
-Click **Backup Now** in the **Tools** tab to create a timestamped `.zip` of your entire world save. Backups are stored in the `Backups\` folder next to this README.
+Click **Backup Saves Now** in the **Tools** tab to create a timestamped `.zip` of your entire world save. Backups are stored in the `Backups\` folder.
 
-Restore a backup by stopping the server, extracting the zip over `R5\Saved\SaveProfiles\`, and restarting.
+**Auto-backup:** Enable the "Auto-backup every" checkbox and select an interval (1, 4, 8, 16, or 24 hours). The next scheduled backup time is displayed below the controls. Auto-backups run as long as the manager window is open.
+
+**Restore:** Stop the server, extract a backup zip over `R5\Saved\SaveProfiles\`, and restart.
 
 ---
 
@@ -158,7 +169,7 @@ This resolves after the first 3-second watchdog cycle. The stats compare two sna
 The server takes ~30-60 seconds to register with Windrose's backend after launch. The code auto-populates once ready and can also be found in `R5\ServerDescription.json`.
 
 **Console commands not working**
-The server must be started from the manager (not from `StartServerForeground.bat`) for stdin to be connected. If you started the server externally, restart it via the manager.
+The server must be started from the manager for console command injection to work. If you started the server externally, stop it and relaunch from the manager's Dashboard tab.
 
 **Players can't connect from outside your network**
 Confirm UDP 7777 and 7778 are forwarded on your router and that Windows Firewall allows `WindroseServer-Win64-Shipping.exe` through.

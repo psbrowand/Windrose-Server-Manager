@@ -18,13 +18,99 @@ public class WinHelper {
             return true;
         }, IntPtr.Zero);
     }
+
+    // --- Console input via Win32 (bypasses broken stdin pipe) ---
+    [DllImport("kernel32.dll", SetLastError = true)] public static extern bool FreeConsole();
+    [DllImport("kernel32.dll", SetLastError = true)] public static extern bool AttachConsole(int pid);
+    [DllImport("kernel32.dll", SetLastError = true)] public static extern IntPtr GetStdHandle(int nStdHandle);
+    [DllImport("kernel32.dll", SetLastError = true)] public static extern bool AllocConsole();
+    [DllImport("kernel32.dll", SetLastError = true)] public static extern IntPtr GetConsoleWindow();
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct KEY_EVENT_RECORD {
+        public int bKeyDown;
+        public short wRepeatCount;
+        public short wVirtualKeyCode;
+        public short wVirtualScanCode;
+        public char UnicodeChar;
+        public int dwControlKeyState;
+    }
+
+    [StructLayout(LayoutKind.Explicit)]
+    public struct INPUT_RECORD {
+        [FieldOffset(0)] public short EventType;
+        [FieldOffset(4)] public KEY_EVENT_RECORD KeyEvent;
+    }
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    public static extern bool WriteConsoleInput(
+        IntPtr hConsoleInput, INPUT_RECORD[] lpBuffer, int nLength, out int written);
+
+    public static bool SendConsoleCommand(int pid, string command) {
+        FreeConsole();
+        if (!AttachConsole(pid)) return false;
+        try {
+            IntPtr hInput = GetStdHandle(-10); // STD_INPUT_HANDLE
+            if (hInput == IntPtr.Zero || hInput == new IntPtr(-1)) return false;
+
+            string full = command + "\r";
+            var records = new INPUT_RECORD[full.Length * 2];
+            int idx = 0;
+            foreach (char c in full) {
+                short vk = (c == '\r') ? (short)0x0D : (short)0;
+                records[idx++] = new INPUT_RECORD {
+                    EventType = 1,
+                    KeyEvent = new KEY_EVENT_RECORD {
+                        bKeyDown = 1, wRepeatCount = 1,
+                        wVirtualKeyCode = vk, UnicodeChar = c
+                    }
+                };
+                records[idx++] = new INPUT_RECORD {
+                    EventType = 1,
+                    KeyEvent = new KEY_EVENT_RECORD {
+                        bKeyDown = 0, wRepeatCount = 1,
+                        wVirtualKeyCode = vk, UnicodeChar = c
+                    }
+                };
+            }
+            int written;
+            return WriteConsoleInput(hInput, records, records.Length, out written);
+        } finally {
+            FreeConsole();
+            // Restore a hidden console for PowerShell so it doesn't crash
+            AllocConsole();
+            IntPtr cw = GetConsoleWindow();
+            if (cw != IntPtr.Zero) ShowWindow(cw, 0);
+        }
+    }
 }
 "@
 
-$AppVersion  = "1.17"
+$AppVersion  = "1.20"
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $PatchNotes = [ordered]@{
+    "1.20" = @(
+        "Fixed console command crash -- restored PowerShell console after Win32 detach/attach",
+        "Fixed backup status text not updating after successful backup",
+        "Added auto-backup feature with selectable interval (1h, 4h, 8h, 16h, 24h)",
+        "Auto-backup shows next scheduled backup time in the Tools tab"
+    )
+    "1.19" = @(
+        "Fixed console commands -- replaced broken stdin pipe with Win32 WriteConsoleInput",
+        "Updated command syntax to match Windrose server (save world, list players, etc.)",
+        "Fixed player disconnect detection -- now catches SaidFarewell and DisconnectAccount events",
+        "Players no longer appear stuck online after ungraceful disconnects (crash, timeout)",
+        "Console tab now shows server log output so command responses are visible",
+        "Added Save on Stop checkbox -- saves world before stopping the server",
+        "Server Info button renamed to Show Logs (uses the 'logs' command)"
+    )
+    "1.18" = @(
+        "Performance: Log viewer now appends new lines instead of rebuilding every 3 seconds",
+        "Performance: Player list only redraws when players join or leave (no more flicker)",
+        "Performance: Cached shared brushes and fonts -- eliminates thousands of object allocations per minute",
+        "Refactored log filter buttons into a single function"
+    )
     "1.17" = @(
         "Fixed ComboBox header (selected value area) background -- was white, now dark",
         "Full ControlTemplate applied to dropdowns for consistent dark theming throughout"
@@ -366,8 +452,12 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
               </Style>
             </ListBox.ItemContainerStyle>
           </ListBox>
-          <CheckBox x:Name="ChkAutoRestart" Grid.Row="3" Content="Auto-restart server if it crashes"
-                    Style="{StaticResource DarkCheck}" Margin="0,4,0,0"/>
+          <StackPanel Grid.Row="3" Orientation="Horizontal" Margin="0,4,0,0">
+            <CheckBox x:Name="ChkAutoRestart" Content="Auto-restart if crashed"
+                      Style="{StaticResource DarkCheck}" Margin="0,0,20,0" VerticalAlignment="Center"/>
+            <CheckBox x:Name="ChkSaveOnStop" Content="Save world on stop"
+                      Style="{StaticResource DarkCheck}" IsChecked="True" VerticalAlignment="Center"/>
+          </StackPanel>
         </Grid>
       </TabItem>
       <!-- TAB 2: CONFIG -->
@@ -604,7 +694,7 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
           <WrapPanel Grid.Row="1" Margin="0,0,0,6">
             <Button x:Name="BtnCmdSave" Content="Save World" Background="#2A3E55" Style="{StaticResource SmallBtn}"/>
             <Button x:Name="BtnCmdPlayers" Content="List Players" Background="#2A3E55" Style="{StaticResource SmallBtn}"/>
-            <Button x:Name="BtnCmdInfo" Content="Server Info" Background="#2A3E55" Style="{StaticResource SmallBtn}"/>
+            <Button x:Name="BtnCmdInfo" Content="Show Logs" Background="#2A3E55" Style="{StaticResource SmallBtn}"/>
             <Button x:Name="BtnCmdQuit" Content="Quit Server" Background="#5A2020" Style="{StaticResource SmallBtn}"/>
           </WrapPanel>
           <Grid Grid.Row="2" Margin="0,0,0,4">
@@ -644,6 +734,19 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                   <Button x:Name="BtnOpenBackups" Content="Open Backup Folder" Background="#1A3A6B" Style="{StaticResource BaseBtn}"/>
                 </StackPanel>
                 <TextBlock x:Name="TxtLastBackup" Text="Last backup: none" Foreground="#8DA4B5" FontSize="11"/>
+                <StackPanel Orientation="Horizontal" Margin="0,8,0,0">
+                  <CheckBox x:Name="ChkAutoBackup" Content="Auto-backup every"
+                            Style="{StaticResource DarkCheck}" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                  <ComboBox x:Name="CmbBackupInterval" Width="90" Style="{StaticResource DarkCombo}"
+                            VerticalAlignment="Center" SelectedIndex="1">
+                    <ComboBoxItem Content="1 hour"/>
+                    <ComboBoxItem Content="4 hours"/>
+                    <ComboBoxItem Content="8 hours"/>
+                    <ComboBoxItem Content="16 hours"/>
+                    <ComboBoxItem Content="24 hours"/>
+                  </ComboBox>
+                </StackPanel>
+                <TextBlock x:Name="TxtNextBackup" Text="" Foreground="#8DA4B5" FontSize="11" Margin="0,4,0,0"/>
               </StackPanel>
             </Border>
             <TextBlock Text="Scheduled Restart" Style="{StaticResource SectionHead}"/>
@@ -937,6 +1040,7 @@ $TxtUptimeBig    = Ctrl 'TxtUptimeBig'
 $PlayerList          = Ctrl 'PlayerList'
 $BtnRefreshPlayers   = Ctrl 'BtnRefreshPlayers'
 $ChkAutoRestart      = Ctrl 'ChkAutoRestart'
+$ChkSaveOnStop       = Ctrl 'ChkSaveOnStop'
 $CfgName         = Ctrl 'CfgName'
 $CfgMaxPlayers   = Ctrl 'CfgMaxPlayers'
 $TxtMaxPlayersVal= Ctrl 'TxtMaxPlayersVal'
@@ -983,6 +1087,9 @@ $TxtConsoleStatus= Ctrl 'TxtConsoleStatus'
 $BtnBackup       = Ctrl 'BtnBackup'
 $BtnOpenBackups  = Ctrl 'BtnOpenBackups'
 $TxtLastBackup   = Ctrl 'TxtLastBackup'
+$ChkAutoBackup   = Ctrl 'ChkAutoBackup'
+$CmbBackupInterval = Ctrl 'CmbBackupInterval'
+$TxtNextBackup   = Ctrl 'TxtNextBackup'
 $ChkSchedule     = Ctrl 'ChkSchedule'
 $TxtScheduleTime = Ctrl 'TxtScheduleTime'
 $TxtCountdown    = Ctrl 'TxtCountdown'
@@ -1045,11 +1152,25 @@ $script:logFilter       = "All"
 $script:scheduleFired   = $false
 $script:lastScheduleDate= $null
 $script:consoleBuffer   = [System.Collections.Generic.List[string]]::new()
-$script:ServerStdin     = $null
 $script:installCopyJob  = $null
 $script:installTimer    = $null
 $script:updateCheckJob  = $null
 $script:updatePollTimer = $null
+$script:lastPlayerSnapshot = ""
+$script:accountToPlayer    = @{}
+$script:autoBackupTimer    = $null
+$script:lastBackupStamp    = $null
+
+# Cached brushes & fonts -- avoids re-allocating identical objects every tick / every log line
+$script:FontConsolas    = [System.Windows.Media.FontFamily]::new("Consolas")
+$script:BrushGrayBtn    = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55)); $script:BrushGrayBtn.Freeze()
+$script:BrushBlueBtn    = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1A,0x4A,0x7A)); $script:BrushBlueBtn.Freeze()
+$script:BrushGrayText   = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x8D,0xA4,0xB5)); $script:BrushGrayText.Freeze()
+$script:BrushStopped    = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x55,0x55,0x55)); $script:BrushStopped.Freeze()
+$script:BrushLogDefault = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x70,0x88,0x99)); $script:BrushLogDefault.Freeze()
+$script:BrushLeave      = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xFA,0x80,0x72)); $script:BrushLeave.Freeze()
+$script:BrushGoldCmd    = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xD4,0xA8,0x43)); $script:BrushGoldCmd.Freeze()
+$script:BrushRed        = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xCC,0x33,0x33)); $script:BrushRed.Freeze()
 
 # ---- HELPERS ----
 
@@ -1216,6 +1337,31 @@ function Find-SteamWindrose {
     return $null
 }
 
+function New-LogTextBlock($line) {
+    $tb = [System.Windows.Controls.TextBlock]::new()
+    $tb.Text = $line
+    $tb.FontFamily = $script:FontConsolas
+    $tb.FontSize = 11
+    $tb.TextWrapping = "NoWrap"
+    $low = $line.ToLower()
+    if     ($low -match 'error|fatal')   { $tb.Foreground = [System.Windows.Media.Brushes]::Tomato }
+    elseif ($low -match 'warning')       { $tb.Foreground = [System.Windows.Media.Brushes]::Orange }
+    elseif ($low -match 'join succeeded'){ $tb.Foreground = [System.Windows.Media.Brushes]::LightGreen }
+    elseif ($low -match 'leave:|saidfarewell|disconnectaccount') { $tb.Foreground = $script:BrushLeave }
+    else   { $tb.Foreground = $script:BrushLogDefault }
+    return $tb
+}
+
+function Test-LogFilter($low, $filter) {
+    switch ($filter) {
+        "All"     { return $true }
+        "Players" { return ($low -match 'join succeeded|leave:|saidfarewell|disconnectaccount') }
+        "Warn"    { return ($low -match 'warning') }
+        "Errors"  { return ($low -match 'error|fatal') }
+    }
+    return $true
+}
+
 function Update-LogViewer {
     if (-not (Test-Path $LogPath)) { return }
     try {
@@ -1234,59 +1380,89 @@ function Update-LogViewer {
         $reader.Dispose()
         $fs.Dispose()
 
+        if ($newLines.Count -eq 0) { return }
+
         foreach ($line in $newLines) {
             $script:logBuffer.Add($line)
             $low = $line.ToLower()
+
+            # --- Player join ---
             if ($low -match 'lognet: join succeeded:') {
                 $playerName = ""
                 if ($line -match 'Join succeeded:\s*(.+)') { $playerName = $Matches[1].Trim() }
                 if ($playerName) {
                     $script:onlinePlayers.Add($playerName) | Out-Null
-                    $entry = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm')] JOINED: $playerName"
-                    Add-History $entry
+                    Add-History "[$(Get-Date -Format 'yyyy-MM-dd HH:mm')] JOINED: $playerName"
                 }
-            } elseif ($low -match 'lognet: leave:') {
+            }
+            # Build AccountId -> PlayerName mapping (appears near join)
+            elseif ($line -match "AccountName '([^']+)'.*AccountId (\w+)") {
+                $script:accountToPlayer[$Matches[2]] = $Matches[1]
+            }
+            # --- Player leave: graceful (standard UE5) ---
+            elseif ($low -match 'lognet: leave:') {
                 $playerName = ""
                 if ($line -match 'Leave:\s*(.+)') { $playerName = $Matches[1].Trim() }
                 if ($playerName) {
                     $script:onlinePlayers.Remove($playerName) | Out-Null
-                    $entry = "[$(Get-Date -Format 'yyyy-MM-dd HH:mm')] LEFT: $playerName"
-                    Add-History $entry
+                    Add-History "[$(Get-Date -Format 'yyyy-MM-dd HH:mm')] LEFT: $playerName"
+                }
+            }
+            # --- Player leave: Windrose farewell (lobby quit, graceful) ---
+            elseif ($line -match "Name '([^']+)'.*State 'SaidFarewell'") {
+                $playerName = $Matches[1]
+                if ($script:onlinePlayers.Remove($playerName)) {
+                    Add-History "[$(Get-Date -Format 'yyyy-MM-dd HH:mm')] LEFT: $playerName"
+                }
+            }
+            # --- Player leave: DisconnectAccount (crash, timeout, any disconnect) ---
+            elseif ($low -match 'disconnectaccount.*accountid (\w+)') {
+                $acctId = $Matches[1]
+                $playerName = $script:accountToPlayer[$acctId]
+                if ($playerName -and $script:onlinePlayers.Remove($playerName)) {
+                    Add-History "[$(Get-Date -Format 'yyyy-MM-dd HH:mm')] LEFT: $playerName (disconnect)"
                 }
             }
         }
+
+        # Cap buffer
         if ($script:logBuffer.Count -gt 1000) {
             $excess = $script:logBuffer.Count - 1000
             $script:logBuffer.RemoveRange(0, $excess)
         }
-        Refresh-LogViewer
+
+        # Feed new lines to Console tab so command responses are visible
+        foreach ($line in $newLines) {
+            Add-ConsoleEntry $line
+        }
+
+        # Append only new lines to LogViewer (instead of full rebuild)
+        $filter = $script:logFilter
+        foreach ($line in $newLines) {
+            if (Test-LogFilter $line.ToLower() $filter) {
+                $LogViewer.Items.Add((New-LogTextBlock $line)) | Out-Null
+            }
+        }
+
+        # Cap viewer items to match buffer
+        while ($LogViewer.Items.Count -gt 1000) {
+            $LogViewer.Items.RemoveAt(0)
+        }
+
+        if ($ChkAutoScroll.IsChecked -and $LogViewer.Items.Count -gt 0) {
+            $LogViewer.ScrollIntoView($LogViewer.Items[$LogViewer.Items.Count - 1])
+        }
     } catch {}
 }
 
+# Full rebuild -- only called when the log filter changes
 function Refresh-LogViewer {
     $LogViewer.Items.Clear()
     $filter = $script:logFilter
     foreach ($line in $script:logBuffer) {
-        $low = $line.ToLower()
-        $include = $false
-        switch ($filter) {
-            "All"     { $include = $true }
-            "Players" { $include = ($low -match 'join succeeded|leave:') }
-            "Warn"    { $include = ($low -match 'warning') }
-            "Errors"  { $include = ($low -match 'error|fatal') }
+        if (Test-LogFilter $line.ToLower() $filter) {
+            $LogViewer.Items.Add((New-LogTextBlock $line)) | Out-Null
         }
-        if (-not $include) { continue }
-        $tb = [System.Windows.Controls.TextBlock]::new()
-        $tb.Text = $line
-        $tb.FontFamily = [System.Windows.Media.FontFamily]::new("Consolas")
-        $tb.FontSize = 11
-        $tb.TextWrapping = "NoWrap"
-        if     ($low -match 'error|fatal')       { $tb.Foreground = [System.Windows.Media.Brushes]::Tomato }
-        elseif ($low -match 'warning')            { $tb.Foreground = [System.Windows.Media.Brushes]::Orange }
-        elseif ($low -match 'join succeeded')     { $tb.Foreground = [System.Windows.Media.Brushes]::LightGreen }
-        elseif ($low -match 'leave:')             { $tb.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xFA,0x80,0x72)) }
-        else { $tb.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x70,0x88,0x99)) }
-        $LogViewer.Items.Add($tb) | Out-Null
     }
     if ($ChkAutoScroll.IsChecked -and $LogViewer.Items.Count -gt 0) {
         $LogViewer.ScrollIntoView($LogViewer.Items[$LogViewer.Items.Count - 1])
@@ -1296,18 +1472,18 @@ function Refresh-LogViewer {
 function Add-ConsoleEntry($text, $isCommand = $false) {
     $tb = [System.Windows.Controls.TextBlock]::new()
     $tb.TextWrapping = "NoWrap"
-    $tb.FontFamily = [System.Windows.Media.FontFamily]::new("Consolas")
+    $tb.FontFamily = $script:FontConsolas
     $tb.FontSize = 11
     if ($isCommand) {
-        $tb.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xD4,0xA8,0x43))
+        $tb.Foreground = $script:BrushGoldCmd
         $tb.Text = "> $text"
     } else {
         $low = $text.ToLower()
         if     ($low -match 'error|fatal')   { $tb.Foreground = [System.Windows.Media.Brushes]::Tomato }
         elseif ($low -match 'warning')       { $tb.Foreground = [System.Windows.Media.Brushes]::Orange }
         elseif ($low -match 'join succeeded'){ $tb.Foreground = [System.Windows.Media.Brushes]::LightGreen }
-        elseif ($low -match 'leave:')        { $tb.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xFA,0x80,0x72)) }
-        else { $tb.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x70,0x88,0x99)) }
+        elseif ($low -match 'leave:|saidfarewell|disconnectaccount') { $tb.Foreground = $script:BrushLeave }
+        else   { $tb.Foreground = $script:BrushLogDefault }
         $tb.Text = $text
     }
     $ConsoleOutput.Items.Add($tb) | Out-Null
@@ -1323,6 +1499,7 @@ function Read-PlayerList {
     # Rebuilds $script:onlinePlayers by replaying the full log.
     # Uses FileShare.ReadWrite so it works while the server has the log open.
     $online = [System.Collections.Generic.HashSet[string]]::new()
+    $acctMap = @{}
     if (-not (Test-Path $LogPath)) { return @() }
     try {
         $fs = [System.IO.FileStream]::new($LogPath,
@@ -1334,16 +1511,33 @@ function Read-PlayerList {
             $line = $reader.ReadLine()
             if ($null -eq $line) { continue }
             $low = $line.ToLower()
+            # Join
             if ($low -match 'lognet: join succeeded:') {
                 if ($line -match 'Join succeeded:\s*(.+)') { $online.Add($Matches[1].Trim()) | Out-Null }
-            } elseif ($low -match 'lognet: leave:') {
+            }
+            # AccountId mapping
+            elseif ($line -match "AccountName '([^']+)'.*AccountId (\w+)") {
+                $acctMap[$Matches[2]] = $Matches[1]
+            }
+            # Standard UE5 leave
+            elseif ($low -match 'lognet: leave:') {
                 if ($line -match 'Leave:\s*(.+)') { $online.Remove($Matches[1].Trim()) | Out-Null }
+            }
+            # Windrose farewell
+            elseif ($line -match "Name '([^']+)'.*State 'SaidFarewell'") {
+                $online.Remove($Matches[1]) | Out-Null
+            }
+            # DisconnectAccount (crash, timeout, any disconnect)
+            elseif ($low -match 'disconnectaccount.*accountid (\w+)') {
+                $pn = $acctMap[$Matches[1]]
+                if ($pn) { $online.Remove($pn) | Out-Null }
             }
         }
         $reader.Dispose()
         $fs.Dispose()
     } catch {}
     $script:onlinePlayers.Clear()
+    $script:accountToPlayer = $acctMap
     foreach ($p in $online) { $script:onlinePlayers.Add($p) | Out-Null }
     return @($online)
 }
@@ -1387,8 +1581,13 @@ function Update-Stats {
             $TxtRam.Text = "$ramMb MB"
         }
 
-        $PlayerList.Items.Clear()
-        foreach ($p in $script:onlinePlayers) { $PlayerList.Items.Add($p) | Out-Null }
+        # Only rebuild PlayerList when the player set actually changes
+        $snapshot = ($script:onlinePlayers | Sort-Object) -join ','
+        if ($snapshot -ne $script:lastPlayerSnapshot) {
+            $script:lastPlayerSnapshot = $snapshot
+            $PlayerList.Items.Clear()
+            foreach ($p in $script:onlinePlayers) { $PlayerList.Items.Add($p) | Out-Null }
+        }
         $TxtPlayers.Text = "$($script:onlinePlayers.Count) / $($script:MaxPlayers)"
 
         if ($script:StartTime) {
@@ -1498,9 +1697,9 @@ function Set-UIRunning {
 }
 
 function Set-UIStopped {
-    $DotStatus.Fill = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x55,0x55,0x55))
+    $DotStatus.Fill = $script:BrushStopped
     $TxtStatus.Text = "  Stopped"
-    $TxtStatus.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x8D,0xA4,0xB5))
+    $TxtStatus.Foreground = $script:BrushGrayText
     $BtnStart.IsEnabled   = $true
     $BtnStop.IsEnabled    = $false
     $BtnRestart.IsEnabled = $false
@@ -1546,15 +1745,14 @@ function Start-ServerProcess {
     } else {
         $psi.FileName = $ServerExe
     }
-    # -log enables UE5's stdin console command processing (AllocConsole).
-    # We hide the window it creates via Win32 shortly after launch.
-    $psi.Arguments             = "-log"
-    $psi.WorkingDirectory      = $ServerDir
-    $psi.UseShellExecute       = $false
-    $psi.RedirectStandardInput = $true
-    $psi.CreateNoWindow        = $true
-    $script:ServerProc  = [Diagnostics.Process]::Start($psi)
-    $script:ServerStdin = $script:ServerProc.StandardInput
+    # -log causes UE5 to call AllocConsole() which enables console command processing.
+    # We send commands via Win32 WriteConsoleInput (NOT stdin redirect, since
+    # AllocConsole overwrites the stdin handle making the .NET pipe useless).
+    $psi.Arguments        = "-log"
+    $psi.WorkingDirectory = $ServerDir
+    $psi.UseShellExecute  = $false
+    $psi.CreateNoWindow   = $true
+    $script:ServerProc = [Diagnostics.Process]::Start($psi)
 
     # UE5 calls AllocConsole() during startup which creates a visible window.
     # Poll for 12 seconds and hide any window owned by the server process.
@@ -1568,6 +1766,16 @@ function Start-ServerProcess {
         if ($script:hideAttempts -ge 12) { $hideTimer.Stop() }
     })
     $hideTimer.Start()
+}
+
+function Send-ServerCommand($cmd) {
+    $proc = Get-ServerProcess
+    if (-not $proc) { Log "Server not running."; return $false }
+    try {
+        $ok = [WinHelper]::SendConsoleCommand($proc.Id, $cmd)
+        if (-not $ok) { Log "Failed to send command (could not attach to console)."; return $false }
+        return $true
+    } catch { Log "Command error: $_"; return $false }
 }
 
 $script:doRestart = {
@@ -1638,13 +1846,18 @@ $BtnStart.Add_Click({
 $BtnStop.Add_Click({
     if ($script:pollTimer)      { $script:pollTimer.Stop();      $script:pollTimer      = $null }
     if ($script:countdownTimer) { $script:countdownTimer.Stop(); $script:countdownTimer = $null }
+    if ($ChkSaveOnStop.IsChecked) {
+        Log "Saving world before stopping..."
+        Send-ServerCommand "save world" | Out-Null
+        Start-Sleep -Seconds 3
+    }
     Stop-AllServerProcesses
-    $script:ServerStdin = $null
     $script:ServerProc  = $null
     $script:StartTime   = $null
     Set-UIStopped
     $BtnCancelRestart.Visibility = "Collapsed"
-    Log "Server stopped."
+    if ($ChkSaveOnStop.IsChecked) { Log "World saved. Server stopped." }
+    else { Log "Server stopped." }
 })
 
 $BtnRestart.Add_Click({
@@ -1652,16 +1865,10 @@ $BtnRestart.Add_Click({
 })
 
 $BtnSave.Add_Click({
-    $p = Get-ServerProcess
-    if (-not $p) { Log "Server not running."; return }
-    try {
-        if ($script:ServerStdin -ne $null) {
-            $script:ServerStdin.WriteLine("SaveWorld")
-            $script:ServerStdin.Flush()
-            Log "Save command sent."
-            Add-ConsoleEntry "SaveWorld command sent."
-        } else { Log "No stdin handle." }
-    } catch { Log "Save error: $_" }
+    if (Send-ServerCommand "save world") {
+        Log "Save command sent."
+        Add-ConsoleEntry "save world" $true
+    }
 })
 
 $BtnFolder.Add_Click({ Start-Process explorer.exe $ServerDir })
@@ -1835,7 +2042,7 @@ $BtnReloadConfig.Add_Click({
     Read-ServerConfig
     Read-WorldConfig
     $TxtConfigStatus.Text = "Config reloaded from disk."
-    $TxtConfigStatus.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x8D,0xA4,0xB5))
+    $TxtConfigStatus.Foreground = $script:BrushGrayText
 })
 
 $BtnOpenWorldJson.Add_Click({
@@ -1845,54 +2052,27 @@ $BtnOpenWorldJson.Add_Click({
 })
 
 # Log filter buttons
-$BtnFAll.Add_Click({
-    $script:logFilter = "All"
-    $BtnFAll.Background     = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1A,0x4A,0x7A))
-    $BtnFPlayers.Background = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55))
-    $BtnFWarn.Background    = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55))
-    $BtnFErrors.Background  = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55))
+function Set-LogFilter($filterName, $activeBtn) {
+    $script:logFilter = $filterName
+    foreach ($btn in @($BtnFAll, $BtnFPlayers, $BtnFWarn, $BtnFErrors)) {
+        $btn.Background = if ($btn -eq $activeBtn) { $script:BrushBlueBtn } else { $script:BrushGrayBtn }
+    }
     Refresh-LogViewer
-})
-$BtnFPlayers.Add_Click({
-    $script:logFilter = "Players"
-    $BtnFAll.Background     = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55))
-    $BtnFPlayers.Background = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1A,0x4A,0x7A))
-    $BtnFWarn.Background    = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55))
-    $BtnFErrors.Background  = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55))
-    Refresh-LogViewer
-})
-$BtnFWarn.Add_Click({
-    $script:logFilter = "Warn"
-    $BtnFAll.Background     = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55))
-    $BtnFPlayers.Background = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55))
-    $BtnFWarn.Background    = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1A,0x4A,0x7A))
-    $BtnFErrors.Background  = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55))
-    Refresh-LogViewer
-})
-$BtnFErrors.Add_Click({
-    $script:logFilter = "Errors"
-    $BtnFAll.Background     = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55))
-    $BtnFPlayers.Background = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55))
-    $BtnFWarn.Background    = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55))
-    $BtnFErrors.Background  = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1A,0x4A,0x7A))
-    Refresh-LogViewer
-})
+}
+$BtnFAll.Add_Click({     Set-LogFilter "All"     $BtnFAll })
+$BtnFPlayers.Add_Click({ Set-LogFilter "Players" $BtnFPlayers })
+$BtnFWarn.Add_Click({    Set-LogFilter "Warn"    $BtnFWarn })
+$BtnFErrors.Add_Click({  Set-LogFilter "Errors"  $BtnFErrors })
 
 # Console tab
 $BtnSendCmd.Add_Click({
     $cmd = $TxtCommand.Text.Trim()
     if (-not $cmd) { return }
     Add-ConsoleEntry $cmd $true
-    try {
-        if ($script:ServerStdin -ne $null) {
-            $script:ServerStdin.WriteLine($cmd)
-            $script:ServerStdin.Flush()
-            $TxtConsoleStatus.Text = ""
-        } else {
-            $TxtConsoleStatus.Text = "Server stdin not available."
-        }
-    } catch {
-        $TxtConsoleStatus.Text = "Error: $_"
+    if (Send-ServerCommand $cmd) {
+        $TxtConsoleStatus.Text = ""
+    } else {
+        $TxtConsoleStatus.Text = "Failed to send command."
     }
     $TxtCommand.Clear()
 })
@@ -1901,24 +2081,76 @@ $TxtCommand.Add_KeyDown({
     if ($_.Key -eq [System.Windows.Input.Key]::Return) { $BtnSendCmd.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) }
 })
 
-$BtnCmdSave.Add_Click({    $TxtCommand.Text = "SaveWorld";    $BtnSendCmd.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) })
-$BtnCmdPlayers.Add_Click({ $TxtCommand.Text = "listplayers";  $BtnSendCmd.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) })
-$BtnCmdInfo.Add_Click({    $TxtCommand.Text = "stat unit";    $BtnSendCmd.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) })
-$BtnCmdQuit.Add_Click({    $TxtCommand.Text = "quit";         $BtnSendCmd.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) })
+$BtnCmdSave.Add_Click({    $TxtCommand.Text = "save world";    $BtnSendCmd.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) })
+$BtnCmdPlayers.Add_Click({ $TxtCommand.Text = "list players";  $BtnSendCmd.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) })
+$BtnCmdInfo.Add_Click({    $TxtCommand.Text = "logs";          $BtnSendCmd.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) })
+$BtnCmdQuit.Add_Click({    $TxtCommand.Text = "quit";          $BtnSendCmd.RaiseEvent([System.Windows.RoutedEventArgs]::new([System.Windows.Controls.Button]::ClickEvent)) })
 
 # Tools tab
 $BtnBackup.Add_Click({
-    if (-not (Test-Path $SavesBase)) { Log "Saves folder not found."; return }
+    if (-not (Test-Path $SavesBase)) { Log "Saves folder not found: $SavesBase"; return }
     try {
         $stamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
         $zipPath = "$BackupDir\Backup_$stamp.zip"
+        if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Force | Out-Null }
         [System.IO.Compression.ZipFile]::CreateFromDirectory($SavesBase, $zipPath)
+        $script:lastBackupStamp = $stamp
         $TxtLastBackup.Text = "Last backup: $stamp"
         Log "Backup created: $zipPath"
     } catch { Log "Backup error: $_" }
 })
 
 $BtnOpenBackups.Add_Click({ Start-Process explorer.exe $BackupDir })
+
+# --- Auto-backup ---
+function Get-BackupIntervalHours {
+    switch ($CmbBackupInterval.SelectedIndex) {
+        0 { 1 }
+        1 { 4 }
+        2 { 8 }
+        3 { 16 }
+        4 { 24 }
+        default { 4 }
+    }
+}
+
+function Start-AutoBackupTimer {
+    if ($script:autoBackupTimer -ne $null) { $script:autoBackupTimer.Stop(); $script:autoBackupTimer = $null }
+    $hours = Get-BackupIntervalHours
+    $script:autoBackupTimer = [System.Windows.Threading.DispatcherTimer]::new()
+    $script:autoBackupTimer.Interval = [TimeSpan]::FromHours($hours)
+    $script:autoBackupTimer.Add_Tick({
+        if (-not (Test-Path $SavesBase)) { Log "Auto-backup skipped: saves folder not found."; return }
+        try {
+            $stamp = Get-Date -Format "yyyy-MM-dd_HH-mm-ss"
+            $zipPath = "$BackupDir\Backup_$stamp.zip"
+            if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Force | Out-Null }
+            [System.IO.Compression.ZipFile]::CreateFromDirectory($SavesBase, $zipPath)
+            $script:lastBackupStamp = $stamp
+            $TxtLastBackup.Text = "Last backup: $stamp (auto)"
+            Log "Auto-backup created: $zipPath"
+        } catch { Log "Auto-backup error: $_" }
+        # Update next-backup display
+        $nextHours = Get-BackupIntervalHours
+        $TxtNextBackup.Text = "Next auto-backup: $(Get-Date (Get-Date).AddHours($nextHours) -Format 'h:mm tt')"
+    })
+    $script:autoBackupTimer.Start()
+    $nextTime = (Get-Date).AddHours($hours)
+    $TxtNextBackup.Text = "Next auto-backup: $(Get-Date $nextTime -Format 'h:mm tt')"
+    Log "Auto-backup enabled: every $hours hour(s)"
+}
+
+function Stop-AutoBackupTimer {
+    if ($script:autoBackupTimer -ne $null) { $script:autoBackupTimer.Stop(); $script:autoBackupTimer = $null }
+    $TxtNextBackup.Text = ""
+    Log "Auto-backup disabled."
+}
+
+$ChkAutoBackup.Add_Checked({   Start-AutoBackupTimer })
+$ChkAutoBackup.Add_Unchecked({ Stop-AutoBackupTimer })
+$CmbBackupInterval.Add_SelectionChanged({
+    if ($ChkAutoBackup.IsChecked) { Start-AutoBackupTimer }
+})
 
 $BtnClearHistory.Add_Click({
     $HistoryList.Items.Clear()
@@ -1934,7 +2166,7 @@ $script:updateDownloadTimer  = $null
 
 $BtnCheckUpdate.Add_Click({
     $TxtUpdateStatus.Text = "Checking for updates..."
-    $TxtUpdateStatus.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x8D,0xA4,0xB5))
+    $TxtUpdateStatus.Foreground = $script:BrushGrayText
     $BtnUpdate.Visibility = "Collapsed"
     $BtnUpdate.IsEnabled = $true   # reset in case a previous download got stuck
     $BtnCheckUpdate.IsEnabled = $false
@@ -1994,7 +2226,7 @@ $BtnUpdate.Add_Click({
     if (-not $script:latestVersion) { $TxtUpdateStatus.Text = "Click Check for Updates first."; return }
     $BtnUpdate.IsEnabled = $false
     $TxtUpdateStatus.Text = "Downloading update..."
-    $TxtUpdateStatus.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x8D,0xA4,0xB5))
+    $TxtUpdateStatus.Foreground = $script:BrushGrayText
     # Use script-scope so the timer closure can see the job variable
     if ($script:updateDownloadTimer -ne $null) { $script:updateDownloadTimer.Stop(); $script:updateDownloadTimer = $null }
     if ($script:updateDownloadJob  -ne $null) { Remove-Job $script:updateDownloadJob -Force -ErrorAction SilentlyContinue; $script:updateDownloadJob = $null }
@@ -2276,7 +2508,6 @@ $script:watchdog.Add_Tick({
     } elseif (-not $proc -and $uiRunning) {
         Set-UIStopped
         Log "Server process ended unexpectedly."
-        $script:ServerStdin = $null
         $script:ServerProc  = $null
         if ($ChkAutoRestart.IsChecked) {
             Log "Auto-restarting..."
@@ -2342,12 +2573,10 @@ $playerMenu.Add_Opened({
 $menuKick.Add_Click({
     $playerName = $PlayerList.SelectedItem
     if (-not $playerName) { return }
-    if ($script:ServerStdin) {
-        $script:ServerStdin.WriteLine("kick $playerName")
-        $script:ServerStdin.Flush()
+    if (Send-ServerCommand "kick $playerName") {
         Add-ConsoleEntry "kick $playerName" $true
         Log "Kick sent: $playerName"
-    } else { Log "Server stdin not available." }
+    }
 })
 
 $menuBan.Add_Click({
@@ -2357,12 +2586,10 @@ $menuBan.Add_Click({
         "Ban player '$playerName'?`nThis will kick them and prevent reconnection.",
         "Confirm Ban", "YesNo", "Warning")
     if ($confirm -ne "Yes") { return }
-    if ($script:ServerStdin) {
-        $script:ServerStdin.WriteLine("ban $playerName")
-        $script:ServerStdin.Flush()
+    if (Send-ServerCommand "ban $playerName") {
         Add-ConsoleEntry "ban $playerName" $true
         Log "Ban sent: $playerName"
-    } else { Log "Server stdin not available." }
+    }
 })
 Read-ServerConfig
 Read-WorldConfig
@@ -2378,9 +2605,9 @@ if (Test-Path $ServerExe) {
     $TxtInstallStatus.Text = "Server installed."
     $TxtInstallStatus.Foreground = [System.Windows.Media.Brushes]::LightGreen
 } else {
-    $DotInstall.Fill = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xCC,0x33,0x33))
+    $DotInstall.Fill = $script:BrushRed
     $TxtInstallStatus.Text = "Server not installed - see Install tab"
-    $TxtInstallStatus.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xCC,0x33,0x33))
+    $TxtInstallStatus.Foreground = $script:BrushRed
     $MainTabs.SelectedIndex = 5
 }
 # Auto-detect Steam source and run initial wizard state
