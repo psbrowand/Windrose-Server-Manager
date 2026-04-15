@@ -21,10 +21,14 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = "1.15"
+$AppVersion  = "1.16"
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $PatchNotes = [ordered]@{
+    "1.16" = @(
+        "Fixed ComboBox dropdown popup background using DropDownOpened event",
+        "Popup border now correctly shows dark background when dropdown opens"
+    )
     "1.15" = @(
         "Fixed ComboBox dropdown popup background (was white, now dark)",
         "Added Reload Saved Config button to Config tab -- discards unsaved changes"
@@ -1643,6 +1647,19 @@ $CfgPreset.Add_SelectionChanged({
         $PanelCustom.Visibility = "Collapsed"
     }
 })
+
+foreach ($cb in @($CfgPreset, $CfgCombatDiff)) {
+    $cb.Add_DropDownOpened({
+        $sender = $args[0]
+        try {
+            $border = $sender.Template.FindName("DropDownBorder", $sender)
+            if ($border) {
+                $border.Background  = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1A,0x27,0x36))
+                $border.BorderBrush = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x2A,0x3E,0x55))
+            }
+        } catch {}
+    })
+}
 
 $sliderPairs = @(
     @{ Slider = $SlMobHealth;  Label = $ValMobHealth  },
