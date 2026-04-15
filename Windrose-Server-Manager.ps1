@@ -21,7 +21,7 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = 10
+$AppVersion  = "1.10"
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $ServerDir      = $PSScriptRoot
@@ -1572,9 +1572,9 @@ $BtnCheckUpdate.Add_Click({
             $wc = [System.Net.WebClient]::new()
             $wc.Headers.Add("User-Agent", "Windrose-Server-Manager")
             $content = $wc.DownloadString($url)
-            $match = [regex]::Match($content, '^\$AppVersion\s*=\s*(\d+)', [System.Text.RegularExpressions.RegexOptions]::Multiline)
+            $match = [regex]::Match($content, '^\$AppVersion\s*=\s*"([^"]+)"', [System.Text.RegularExpressions.RegexOptions]::Multiline)
             if ($match.Success) {
-                return @{ Version = [int]$match.Groups[1].Value; Content = $content; Error = $null }
+                return @{ Version = $match.Groups[1].Value; Content = $content; Error = $null }
             } else {
                 return @{ Version = $null; Content = $null; Error = "Could not read version from remote file." }
             }
@@ -1602,7 +1602,7 @@ $BtnCheckUpdate.Add_Click({
         if ($result -and $result.Version -ne $null) {
             $script:latestVersion = $result.Version
             $script:latestContent = $result.Content
-            if ($result.Version -gt $AppVersion) {
+            if (([System.Version]$result.Version) -gt ([System.Version]$AppVersion)) {
                 $TxtUpdateStatus.Text = "Update available! Remote version $($result.Version), you have $AppVersion. Click Update Now to install."
                 $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::LightGreen
                 $BtnUpdate.Visibility = "Visible"
