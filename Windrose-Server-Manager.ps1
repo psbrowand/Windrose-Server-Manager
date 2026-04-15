@@ -1,6 +1,9 @@
 Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase, System.Windows.Forms
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 
+$AppVersion  = 4
+$UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
+
 $ServerDir   = $PSScriptRoot
 $ServerExe   = "$ServerDir\WindroseServer.exe"
 $ConfigPath  = "$ServerDir\R5\ServerDescription.json"
@@ -463,6 +466,17 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
       <TabItem Header="Tools">
         <ScrollViewer VerticalScrollBarVisibility="Auto" Background="#0F1923">
           <StackPanel Margin="14,10">
+            <TextBlock Text="App Update" Style="{StaticResource SectionHead}"/>
+            <Border Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                  <TextBlock x:Name="TxtCurrentVersion" Text="Current version: ..." Foreground="#8DA4B5" FontSize="11" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                  <Button x:Name="BtnCheckUpdate" Content="Check for Updates" Background="#1A4A7A" Style="{StaticResource SmallBtn}"/>
+                  <Button x:Name="BtnUpdate" Content="Update Now" Background="#1A6B3A" Style="{StaticResource SmallBtn}" Visibility="Collapsed"/>
+                </StackPanel>
+                <TextBlock x:Name="TxtUpdateStatus" Text="" Foreground="#8DA4B5" FontSize="11" TextWrapping="Wrap"/>
+              </StackPanel>
+            </Border>
             <TextBlock Text="Backup" Style="{StaticResource SectionHead}"/>
             <Border Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
               <StackPanel>
@@ -653,6 +667,10 @@ $TxtScheduleTime = Ctrl 'TxtScheduleTime'
 $TxtCountdown    = Ctrl 'TxtCountdown'
 $HistoryList     = Ctrl 'HistoryList'
 $BtnClearHistory = Ctrl 'BtnClearHistory'
+$TxtCurrentVersion = Ctrl 'TxtCurrentVersion'
+$BtnCheckUpdate  = Ctrl 'BtnCheckUpdate'
+$BtnUpdate       = Ctrl 'BtnUpdate'
+$TxtUpdateStatus = Ctrl 'TxtUpdateStatus'
 $DotInstall      = Ctrl 'DotInstall'
 $TxtInstallStatus= Ctrl 'TxtInstallStatus'
 $TxtSteamSource  = Ctrl 'TxtSteamSource'
@@ -691,6 +709,8 @@ $script:consoleBuffer   = [System.Collections.Generic.List[string]]::new()
 $script:ServerStdin     = $null
 $script:installCopyJob  = $null
 $script:installTimer    = $null
+$script:updateCheckJob  = $null
+$script:updatePollTimer = $null
 
 # ---- HELPERS ----
 
@@ -1396,6 +1416,79 @@ $BtnClearHistory.Add_Click({
     Log "History cleared."
 })
 
+# Update tab
+$script:latestVersion   = $null
+$script:latestContent   = $null
+
+$BtnCheckUpdate.Add_Click({
+    $TxtUpdateStatus.Text = "Checking for updates..."
+    $TxtUpdateStatus.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x8D,0xA4,0xB5))
+    $BtnUpdate.Visibility = "Collapsed"
+    $BtnCheckUpdate.IsEnabled = $false
+    $script:updateCheckJob = Start-Job -ScriptBlock {
+        param($url)
+        try {
+            $wc = [System.Net.WebClient]::new()
+            $wc.Headers.Add("User-Agent", "Windrose-Server-Manager")
+            $content = $wc.DownloadString($url)
+            $match = [regex]::Match($content, '^\$AppVersion\s*=\s*(\d+)', [System.Text.RegularExpressions.RegexOptions]::Multiline)
+            if ($match.Success) {
+                return @{ Version = [int]$match.Groups[1].Value; Content = $content; Error = $null }
+            } else {
+                return @{ Version = $null; Content = $null; Error = "Could not read version from remote file." }
+            }
+        } catch {
+            return @{ Version = $null; Content = $null; Error = $_.ToString() }
+        }
+    } -ArgumentList $UpdateUrl
+
+    if ($script:updatePollTimer -ne $null) { $script:updatePollTimer.Stop(); $script:updatePollTimer = $null }
+    $script:updatePollTimer = [System.Windows.Threading.DispatcherTimer]::new()
+    $script:updatePollTimer.Interval = [TimeSpan]::FromSeconds(1)
+    $script:updatePollTimer.Add_Tick({
+        $job = $script:updateCheckJob
+        if ($job -eq $null -or $job.State -eq 'Running') { return }
+        $script:updatePollTimer.Stop()
+        $result = Receive-Job $job -ErrorAction SilentlyContinue
+        Remove-Job $job -ErrorAction SilentlyContinue
+        $script:updateCheckJob = $null
+        $BtnCheckUpdate.IsEnabled = $true
+        if ($result -and $result.Error) {
+            $TxtUpdateStatus.Text = "Error: $($result.Error)"
+            $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::Tomato
+            return
+        }
+        if ($result -and $result.Version -ne $null) {
+            $script:latestVersion = $result.Version
+            $script:latestContent = $result.Content
+            if ($result.Version -gt $AppVersion) {
+                $TxtUpdateStatus.Text = "Update available! Remote version $($result.Version), you have $AppVersion. Click Update Now to install."
+                $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::LightGreen
+                $BtnUpdate.Visibility = "Visible"
+            } else {
+                $TxtUpdateStatus.Text = "You are up to date (version $AppVersion)."
+                $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::LightGreen
+            }
+        }
+    })
+    $script:updatePollTimer.Start()
+})
+
+$BtnUpdate.Add_Click({
+    if (-not $script:latestContent) { $TxtUpdateStatus.Text = "No update downloaded yet. Click Check for Updates first."; return }
+    try {
+        $dest = "$ServerDir\Windrose-Server-Manager.ps1"
+        [System.IO.File]::WriteAllText($dest, $script:latestContent, [System.Text.Encoding]::UTF8)
+        $BtnUpdate.Visibility = "Collapsed"
+        $TxtUpdateStatus.Text = "Update installed (version $($script:latestVersion)). Close and relaunch the app to apply it."
+        $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::LightGreen
+        Log "App updated to version $($script:latestVersion). Please restart."
+    } catch {
+        $TxtUpdateStatus.Text = "Failed to write update: $_"
+        $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::Tomato
+    }
+})
+
 # Install tab
 $BtnDetectSteam.Add_Click({
     $found = Find-SteamWindrose
@@ -1535,6 +1628,7 @@ $script:logTailTimer.Add_Tick({ Update-LogViewer })
 
 # ---- INITIAL STATE ----
 $TxtInstallDest.Text = $ServerDir
+$TxtCurrentVersion.Text = "Current version: $AppVersion"
 Read-ServerConfig
 Read-WorldConfig
 Load-History
