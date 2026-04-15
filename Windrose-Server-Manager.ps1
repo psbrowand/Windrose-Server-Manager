@@ -21,7 +21,7 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = 9
+$AppVersion  = 10
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $ServerDir      = $PSScriptRoot
@@ -279,9 +279,9 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                   </Grid.ColumnDefinitions>
                   <TextBlock Grid.Column="0" Text="Max Players" Style="{StaticResource FieldLabel}"/>
                   <Slider x:Name="CfgMaxPlayers" Grid.Column="1" Minimum="1" Maximum="20"
-                          TickFrequency="1" IsSnapToTickEnabled="True" Value="4"
+                          TickFrequency="1" IsSnapToTickEnabled="True" Value="10"
                           VerticalAlignment="Center"/>
-                  <TextBlock x:Name="TxtMaxPlayersVal" Grid.Column="2" Text="4"
+                  <TextBlock x:Name="TxtMaxPlayersVal" Grid.Column="2" Text="10"
                              Foreground="#D4A843" FontWeight="Bold" VerticalAlignment="Center"
                              HorizontalAlignment="Center"/>
                 </Grid>
@@ -738,7 +738,7 @@ $script:ServerProc      = $null
 $script:StartTime       = $null
 $script:PrevCpuTime     = $null
 $script:PrevCpuCheck    = $null
-$script:MaxPlayers      = 4
+$script:MaxPlayers      = 10
 $script:pollTimer       = $null
 $script:countdownTimer  = $null
 $script:countdownSecs   = 0
