@@ -42,14 +42,14 @@ A local GUI application for running and managing a [Windrose](https://store.stea
    ```
    git clone https://github.com/YOUR_USERNAME/Windrose-Server-Manager.git "C:\Game-Servers\Windrose"
    ```
-3. **Run `Launch.bat`** — double-click it. The app opens to the **Install** tab automatically.
+3. **Run `Launch.vbs`** — double-click it. The app opens with no terminal windows. The app opens to the **Install** tab automatically.
 4. Click **Auto-Detect** to find your Windrose Steam installation.
 5. Click **Install Server** — the server files (~2.8 GB) are copied to the manager folder.
 6. Switch to the **Dashboard** tab and click **Start**.
 
 ### Already have server files
 
-If you already set up a Windrose server in this folder, just run `Launch.bat` and you are ready to go.
+If you already set up a Windrose server in this folder, just run `Launch.vbs` and you are ready to go.
 
 ---
 
@@ -129,7 +129,8 @@ In the **Tools** tab, enable the scheduled restart and enter a time in `HH:mm` 2
 
 ```
 Windrose-Server-Manager\
-├── Launch.bat                        <- Double-click to open the manager
+├── Launch.vbs                        <- Double-click to open the manager (no terminal window)
+├── Launch.bat                        <- Use this for debugging (shows errors in console)
 ├── Windrose-Server-Manager.ps1       <- Main application
 ├── README.md
 ├── Backups\                          <- World backup zips (created on first backup)
@@ -148,7 +149,7 @@ Windrose-Server-Manager\
 ## Troubleshooting
 
 **Manager window closes immediately**
-Run `Launch.bat` from a Command Prompt to see the error. Common causes: PowerShell execution policy, missing .NET Framework.
+Run `Launch.bat` from a Command Prompt to see the error (use this instead of Launch.vbs when debugging). Common causes: PowerShell execution policy, missing .NET Framework.
 
 **CPU shows 0% / RAM shows very low**
 This resolves after the first 10-second watchdog cycle. The stats compare two snapshots 10 seconds apart.
