@@ -137,17 +137,6 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
       <Setter Property="BorderThickness" Value="1"/>
       <Setter Property="Padding" Value="6,4"/>
       <Setter Property="FontSize" Value="13"/>
-      <!-- Override the system colour the popup border uses as its background -->
-      <Setter Property="Resources">
-        <Setter.Value>
-          <ResourceDictionary>
-            <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}"      Color="#1A2736"/>
-            <SolidColorBrush x:Key="{x:Static SystemColors.WindowTextBrushKey}"  Color="#D0D8E4"/>
-            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}"   Color="#1E3348"/>
-            <SolidColorBrush x:Key="{x:Static SystemColors.HighlightTextBrushKey}" Color="#D4A843"/>
-          </ResourceDictionary>
-        </Setter.Value>
-      </Setter>
       <Setter Property="ItemContainerStyle">
         <Setter.Value>
           <Style TargetType="ComboBoxItem">
@@ -855,6 +844,19 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
 
 $Reader = [System.Xml.XmlNodeReader]::new($Xaml)
 $Window = [Windows.Markup.XamlReader]::Load($Reader)
+
+# Override the system brush that WPF's default ComboBox popup uses as its
+# background. Must be done in code after the window is created because
+# {x:Static SystemColors.*Key} as x:Key in a Style.Setter.Value crashes
+# WPF's XamlReader when loaded from a heredoc in PowerShell.
+$Window.Resources[[System.Windows.SystemColors]::WindowBrushKey] =
+    [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1A,0x27,0x36))
+$Window.Resources[[System.Windows.SystemColors]::WindowTextBrushKey] =
+    [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xD0,0xD8,0xE4))
+$Window.Resources[[System.Windows.SystemColors]::HighlightBrushKey] =
+    [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x1E,0x33,0x48))
+$Window.Resources[[System.Windows.SystemColors]::HighlightTextBrushKey] =
+    [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0xD4,0xA8,0x43))
 
 function Ctrl($n) { $Window.FindName($n) }
 
