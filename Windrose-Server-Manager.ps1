@@ -603,7 +603,7 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                   <TextBlock x:Name="StepStatus1" Grid.Column="2" Text="" FontSize="11" Foreground="#8DA4B5" VerticalAlignment="Center"/>
                 </Grid>
                 <StackPanel Margin="36,0,0,0">
-                  <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#8DA4B5" Margin="0,0,0,8">Windrose must be installed via Steam (App ID 3041230). The dedicated server files are bundled inside the game — no separate download needed.</TextBlock>
+                  <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#8DA4B5" Margin="0,0,0,8">Windrose must be installed via Steam (App ID 3041230). The dedicated server files are bundled inside the game - no separate download needed.</TextBlock>
                   <TextBlock x:Name="TxtReqSteam" Text="Checking..." FontSize="11" Foreground="#8DA4B5" Margin="0,0,0,8"/>
                   <Button x:Name="BtnCheckReqs" Content="Re-check" Background="#2A3E55" Style="{StaticResource SmallBtn}" HorizontalAlignment="Left"/>
                 </StackPanel>
@@ -756,7 +756,7 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                   <TextBlock Grid.Column="1" Text="Start Your Server" FontSize="13" FontWeight="Bold" Foreground="#C0CDD8" VerticalAlignment="Center"/>
                 </Grid>
                 <StackPanel Margin="36,0,0,0">
-                  <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#8DA4B5" Margin="0,0,0,10">Everything is ready. Head to the Dashboard tab and click Start. Your invite code will appear in the header once the server is online — share it with friends to let them join.</TextBlock>
+                  <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#8DA4B5" Margin="0,0,0,10">Everything is ready. Head to the Dashboard tab and click Start. Your invite code will appear in the header once the server is online - share it with friends to let them join.</TextBlock>
                   <Button x:Name="BtnGoToDashboard" Content="Go to Dashboard" Background="#1A6B3A" Style="{StaticResource BaseBtn}" HorizontalAlignment="Left"/>
                 </StackPanel>
               </StackPanel>
@@ -1011,7 +1011,7 @@ function Read-WorldConfig {
         $ws = $wd.WorldSettings
         if (-not $ws) { return }
 
-        # Float parameters — keys are JSON strings like '{"TagName": "WDS.Parameter.MobHealthMultiplier"}'
+        # Float parameters -- keys are JSON strings like '{"TagName": "WDS.Parameter.MobHealthMultiplier"}'
         $fp = $ws.FloatParameters
         if ($fp) {
             $floatMap = [ordered]@{
@@ -1038,7 +1038,7 @@ function Read-WorldConfig {
             if ($prop) { $CfgEasyExplore.IsChecked = [bool]$prop.Value }
         }
 
-        # Tag parameters — combat difficulty
+        # Tag parameters -- combat difficulty
         $tp = $ws.TagParameters
         if ($tp) {
             $prop = $tp.PSObject.Properties['{"TagName": "WDS.Parameter.CombatDifficulty"}']
@@ -1272,7 +1272,7 @@ function Update-Stats {
 }
 
 function Refresh-PlayerList {
-    # Full log replay — rebuilds player list from scratch, correcting any missed leave events.
+    # Full log replay -- rebuilds player list from scratch, correcting any missed leave events.
     Read-PlayerList | Out-Null
     $PlayerList.Items.Clear()
     foreach ($p in $script:onlinePlayers) { $PlayerList.Items.Add($p) | Out-Null }
@@ -1300,7 +1300,7 @@ function Update-SetupWizard {
     $serverReady = Test-Path $ServerExe
     $configReady = ($script:step3Saved -eq $true) -or (Test-Path $ConfigPath)
 
-    # Step 1 — Requirements
+    # Step 1 -- Requirements
     if ($steamFound) {
         $StepBadge1.Background = $cGreen; $StepBadgeTxt1.Text = [char]0x2713
         $StepStatus1.Text = "Ready"; $StepStatus1.Foreground = $fGreen
@@ -1309,11 +1309,11 @@ function Update-SetupWizard {
     } else {
         $StepBadge1.Background = $cBlue; $StepBadgeTxt1.Text = "1"
         $StepStatus1.Text = "Action needed"; $StepStatus1.Foreground = $fRed
-        $TxtReqSteam.Text = ([char]0x2717) + " Windrose not found — install it via Steam first (App ID 3041230)"
+        $TxtReqSteam.Text = ([char]0x2717) + " Windrose not found - install it via Steam first (App ID 3041230)"
         $TxtReqSteam.Foreground = $fRed
     }
 
-    # Step 2 — Install
+    # Step 2 -- Install
     if ($serverReady) {
         $StepBadge2.Background = $cGreen; $StepBadgeTxt2.Text = [char]0x2713
         $StepStatus2.Text = "Installed"; $StepStatus2.Foreground = $fGreen
@@ -1325,7 +1325,7 @@ function Update-SetupWizard {
         $StepStatus2.Text = "Complete step 1 first"; $StepStatus2.Foreground = $fGray
     }
 
-    # Step 3 — Configure
+    # Step 3 -- Configure
     if ($configReady -and $serverReady) {
         $StepBadge3.Background = $cGreen; $StepBadgeTxt3.Text = [char]0x2713
         $StepStatus3.Text = "Configured"; $StepStatus3.Foreground = $fGreen
@@ -1337,7 +1337,7 @@ function Update-SetupWizard {
         $StepStatus3.Text = "Complete step 2 first"; $StepStatus3.Foreground = $fGray
     }
 
-    # Step 4 — Port forwarding (informational)
+    # Step 4 -- Port forwarding (informational)
     if ($serverReady) {
         $StepBadge4.Background = $cBlue; $StepBadgeTxt4.Text = "4"
         $StepStatus4.Text = "Review ports"; $StepStatus4.Foreground = $fGray
@@ -1346,7 +1346,7 @@ function Update-SetupWizard {
         $StepStatus4.Text = ""; $StepStatus4.Foreground = $fGray
     }
 
-    # Step 5 — Go to dashboard
+    # Step 5 -- Go to dashboard
     if ($serverReady) {
         $StepBadge5.Background = $cBlue; $StepBadgeTxt5.Text = "5"
     } else {
@@ -1409,7 +1409,7 @@ function Invoke-RestartWithCountdown($actionBlock) {
 
 function Start-ServerProcess {
     $psi = [Diagnostics.ProcessStartInfo]::new()
-    # Launch the shipping exe directly — avoids cmd.exe child spawned by WindroseServer.exe.
+    # Launch the shipping exe directly -- avoids cmd.exe child spawned by WindroseServer.exe.
     if (Test-Path $ServerExeDirect) {
         $psi.FileName = $ServerExeDirect
     } else {
@@ -1629,7 +1629,7 @@ $BtnSaveConfig.Add_Click({
         $rootObj | ConvertTo-Json -Depth 5 | Set-Content $ConfigPath -Encoding UTF8
         $TxtServerName.Text = $CfgName.Text
 
-        # World config — write proper nested WorldDescription.json structure
+        # World config -- write proper nested WorldDescription.json structure
         $wPath = Find-WorldConfig
         if ($wPath) {
             $existingWorld = $null
