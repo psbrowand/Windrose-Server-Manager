@@ -21,7 +21,7 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = "1.11"
+$AppVersion  = "1.12"
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $ServerDir      = $PSScriptRoot
@@ -1846,18 +1846,53 @@ $BtnCheckUpdate.Add_Click({
 })
 
 $BtnUpdate.Add_Click({
-    if (-not $script:latestContent) { $TxtUpdateStatus.Text = "No update downloaded yet. Click Check for Updates first."; return }
-    try {
-        $dest = "$ServerDir\Windrose-Server-Manager.ps1"
-        [System.IO.File]::WriteAllText($dest, $script:latestContent, [System.Text.Encoding]::UTF8)
-        $BtnUpdate.Visibility = "Collapsed"
-        $TxtUpdateStatus.Text = "Update installed (version $($script:latestVersion)). Close and relaunch the app to apply it."
-        $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::LightGreen
-        Log "App updated to version $($script:latestVersion). Please restart."
-    } catch {
-        $TxtUpdateStatus.Text = "Failed to write update: $_"
-        $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::Tomato
-    }
+    if (-not $script:latestVersion) { $TxtUpdateStatus.Text = "Click Check for Updates first."; return }
+    $BtnUpdate.IsEnabled = $false
+    $TxtUpdateStatus.Text = "Downloading update..."
+    $TxtUpdateStatus.Foreground = [System.Windows.Media.SolidColorBrush]::new([System.Windows.Media.Color]::FromRgb(0x8D,0xA4,0xB5))
+    # Fresh download at click time -- avoids large-object job serialisation issues
+    $updateJob = Start-Job -ScriptBlock {
+        param($url)
+        try {
+            $wc = [System.Net.WebClient]::new()
+            $wc.Headers.Add("User-Agent","Windrose-Server-Manager")
+            return @{ Content = $wc.DownloadString($url); Error = $null }
+        } catch {
+            return @{ Content = $null; Error = $_.ToString() }
+        }
+    } -ArgumentList $UpdateUrl
+    $dlTimer = [System.Windows.Threading.DispatcherTimer]::new()
+    $dlTimer.Interval = [TimeSpan]::FromSeconds(1)
+    $dlTimer.Add_Tick({
+        $job = $updateJob
+        if ($job -eq $null -or $job.State -eq 'Running') { return }
+        $dlTimer.Stop()
+        $res = Receive-Job $job -ErrorAction SilentlyContinue
+        Remove-Job $job -ErrorAction SilentlyContinue
+        $BtnUpdate.IsEnabled = $true
+        if ($res -and $res.Error) {
+            $TxtUpdateStatus.Text = "Download failed: $($res.Error)"
+            $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::Tomato
+            return
+        }
+        if ($res -and $res.Content) {
+            try {
+                $dest = "$ServerDir\Windrose-Server-Manager.ps1"
+                [System.IO.File]::WriteAllText($dest, $res.Content, [System.Text.Encoding]::UTF8)
+                $BtnUpdate.Visibility = "Collapsed"
+                $TxtUpdateStatus.Text = "Updated to version $($script:latestVersion). Close and relaunch to apply."
+                $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::LightGreen
+                Log "App updated to $($script:latestVersion) -- restart to apply."
+            } catch {
+                $TxtUpdateStatus.Text = "Failed to write file: $_"
+                $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::Tomato
+            }
+        } else {
+            $TxtUpdateStatus.Text = "Download returned empty content."
+            $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::Tomato
+        }
+    })
+    $dlTimer.Start()
 })
 
 # Install tab
