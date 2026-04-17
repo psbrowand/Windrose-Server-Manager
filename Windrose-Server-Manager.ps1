@@ -86,10 +86,16 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = "1.23"
+$AppVersion  = "1.24"
 $UpdateUrl   = "https://raw.githubusercontent.com/psbrowand/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $PatchNotes = [ordered]@{
+    "1.24" = @(
+        "Install Server button now switches to Update Server when the server is already installed",
+        "Added 'Stop the server before updating' reminder next to the update button",
+        "Update/install now prompts to stop the server first if it's running",
+        "Updated Steam App ID reference to the new Windrose Dedicated Server app (4129620)"
+    )
     "1.23" = @(
         "Settings now persist between launches (auto-restart, save on stop, auto-backup, schedule, countdown)",
         "Added Export Logs button to the Log tab -- saves full server log to a file"
@@ -881,7 +887,7 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                   <TextBlock x:Name="StepStatus1" Grid.Column="2" Text="" FontSize="11" Foreground="#8DA4B5" VerticalAlignment="Center"/>
                 </Grid>
                 <StackPanel Margin="36,0,0,0">
-                  <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#8DA4B5" Margin="0,0,0,8">Windrose must be installed via Steam (App ID 3041230). The dedicated server files are bundled inside the game - no separate download needed.</TextBlock>
+                  <TextBlock TextWrapping="Wrap" FontSize="11" Foreground="#8DA4B5" Margin="0,0,0,8">Windrose must be installed via Steam (App ID 4129620). The dedicated server files are bundled inside the game - no separate download needed.</TextBlock>
                   <TextBlock x:Name="TxtReqSteam" Text="Checking..." FontSize="11" Foreground="#8DA4B5" Margin="0,0,0,8"/>
                   <Button x:Name="BtnCheckReqs" Content="Re-check" Background="#2A3E55" Style="{StaticResource SmallBtn}" HorizontalAlignment="Left"/>
                 </StackPanel>
@@ -927,7 +933,11 @@ if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Forc
                   <ScrollViewer Height="110" VerticalScrollBarVisibility="Auto" Margin="0,0,0,8">
                     <TextBox x:Name="TxtInstallLog" IsReadOnly="True" FontFamily="Consolas" FontSize="10" Background="#0A1218" Foreground="#90A8B8" BorderBrush="#1E3348" BorderThickness="1" TextWrapping="Wrap"/>
                   </ScrollViewer>
-                  <Button x:Name="BtnInstall" Content="Install Server" Background="#1A6B3A" Style="{StaticResource BaseBtn}" HorizontalAlignment="Left"/>
+                  <StackPanel Orientation="Horizontal">
+                    <Button x:Name="BtnInstall" Content="Install Server" Background="#1A6B3A" Style="{StaticResource BaseBtn}" HorizontalAlignment="Left"/>
+                    <TextBlock x:Name="TxtInstallWarning" Text="" Foreground="#D4A843" FontSize="11"
+                               VerticalAlignment="Center" Margin="12,0,0,0"/>
+                  </StackPanel>
                 </StackPanel>
               </StackPanel>
             </Border>
@@ -1175,6 +1185,7 @@ $TxtInstallDest  = Ctrl 'TxtInstallDest'
 $BtnBrowseDest   = Ctrl 'BtnBrowseDest'
 $TxtInstallLog   = Ctrl 'TxtInstallLog'
 $BtnInstall      = Ctrl 'BtnInstall'
+$TxtInstallWarning = Ctrl 'TxtInstallWarning'
 # Wizard controls
 $StepBadge1      = Ctrl 'StepBadge1';  $StepBadgeTxt1 = Ctrl 'StepBadgeTxt1';  $StepStatus1 = Ctrl 'StepStatus1'
 $StepBadge2      = Ctrl 'StepBadge2';  $StepBadgeTxt2 = Ctrl 'StepBadgeTxt2';  $StepStatus2 = Ctrl 'StepStatus2'
@@ -1736,20 +1747,26 @@ function Update-SetupWizard {
     } else {
         $StepBadge1.Background = $cBlue; $StepBadgeTxt1.Text = "1"
         $StepStatus1.Text = "Action needed"; $StepStatus1.Foreground = $fRed
-        $TxtReqSteam.Text = ([char]0x2717) + " Windrose not found - install it via Steam first (App ID 3041230)"
+        $TxtReqSteam.Text = ([char]0x2717) + " Windrose not found - install it via Steam first (App ID 4129620)"
         $TxtReqSteam.Foreground = $fRed
     }
 
-    # Step 2 -- Install
+    # Step 2 -- Install / Update
     if ($serverReady) {
         $StepBadge2.Background = $cGreen; $StepBadgeTxt2.Text = [char]0x2713
         $StepStatus2.Text = "Installed"; $StepStatus2.Foreground = $fGreen
+        $BtnInstall.Content = "Update Server"
+        $TxtInstallWarning.Text = "Stop the server before updating"
     } elseif ($steamFound) {
         $StepBadge2.Background = $cBlue; $StepBadgeTxt2.Text = "2"
         $StepStatus2.Text = "Ready to install"; $StepStatus2.Foreground = $fGray
+        $BtnInstall.Content = "Install Server"
+        $TxtInstallWarning.Text = ""
     } else {
         $StepBadge2.Background = $cGray; $StepBadgeTxt2.Text = "2"
         $StepStatus2.Text = "Complete step 1 first"; $StepStatus2.Foreground = $fGray
+        $BtnInstall.Content = "Install Server"
+        $TxtInstallWarning.Text = ""
     }
 
     # Step 3 -- Configure
@@ -2481,6 +2498,14 @@ $BtnBrowseDest.Add_Click({
 })
 
 $BtnInstall.Add_Click({
+    # Safety check: prevent install/update while server is running
+    if (Get-ServerProcess) {
+        $result = [System.Windows.MessageBox]::Show(
+            "The server is currently running. You must stop it before updating. Stop the server now?",
+            "Server Running", "YesNo", "Warning")
+        if ($result -eq "Yes") { Stop-AllServerProcesses; Start-Sleep -Seconds 2 }
+        else { return }
+    }
     $src = $TxtSteamSource.Text.Trim()
     $dst = $TxtInstallDest.Text.Trim()
     if (-not $src -or -not (Test-Path "$src\WindroseServer.exe")) {
