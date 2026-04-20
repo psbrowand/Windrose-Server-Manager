@@ -1,3 +1,6 @@
+Original author: psbrowand (https://github.com/psbrowand/Windrose-Server-Manager)
+SteamCMD support fork by: Andrew1175 (https://github.com/Andrew1175/Windrose-Server-Manager)
+
 # Windrose Server Manager
 
 A local GUI application for running and managing a [Windrose](https://store.steampowered.com/app/3041230/Windrose/) dedicated server on Windows.
@@ -8,6 +11,7 @@ A local GUI application for running and managing a [Windrose](https://store.stea
 
 ## Features
 
+- **Steam and SteamCMD support** - You will be asked which method you are using upon first launch
 - **One-click Start / Stop / Restart** with configurable countdown warning before restart
 - **Live dashboard** — CPU usage, RAM, player count, uptime, and connected player list
 - **Live log viewer** — color-coded, filterable (All / Players / Warnings / Errors) with auto-scroll
@@ -31,9 +35,9 @@ A local GUI application for running and managing a [Windrose](https://store.stea
 - Windows 10 or Windows 11
 - PowerShell 5.1 (built into Windows — no install needed)
 - .NET Framework 4.5 or later (pre-installed on Windows 10+)
-- **Windrose** owned and installed via Steam (App ID 3041230)
+- **Windrose** owned and installed via Steam or SteamCMD (App ID 3041230)
 
-> The dedicated server files are bundled inside the Windrose game install. You do not need a separate dedicated server download.
+> The dedicated server files are bundled inside the Windrose game instal if using Steam. You do not need a separate dedicated server download.
 
 ---
 
@@ -41,10 +45,10 @@ A local GUI application for running and managing a [Windrose](https://store.stea
 
 ### First time (new machine)
 
-1. **Install Windrose** from Steam and let it fully download.
+1. **Install Windrose** from Steam or SteamCMD and let it fully download.
 2. **Download this repository** — click *Code > Download ZIP* on GitHub and extract it, or clone it:
    ```
-   git clone https://github.com/psbrowand/Windrose-Server-Manager.git "C:\Game-Servers\Windrose"
+   git clone https://github.com/Andrew1175/Windrose-Server-Manager.git "C:\Game-Servers\Windrose"
    ```
 3. **Run `Launch.vbs`** — double-click it. The app opens with no terminal windows. The app opens to the **Install** tab automatically.
 4. Click **Auto-Detect** to find your Windrose Steam installation.
