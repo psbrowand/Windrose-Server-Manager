@@ -1,4 +1,5 @@
 Original author: psbrowand (https://github.com/psbrowand/Windrose-Server-Manager)
+
 SteamCMD support fork by: Andrew1175 (https://github.com/Andrew1175/Windrose-Server-Manager)
 
 # Windrose Server Manager
