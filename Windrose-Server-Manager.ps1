@@ -89,11 +89,15 @@ public class WinHelper {
 }
 "@
 
-$AppVersion  = "1.26"
+$AppVersion  = "1.27"
 # Changed Update URL just in case someone is using SteamCMD version and main github has not been updated. This will need to be changed again if the original author merges these changes.
 $UpdateUrl   = "https://raw.githubusercontent.com/Andrew1175/Windrose-Server-Manager/main/Windrose-Server-Manager.ps1"
 
 $PatchNotes = [ordered]@{
+    "1.27" = @(
+        "Fixed: Launch settings were not being saved correctly leading to being asked about which server hosting client you were using every time the app was launched.",
+        "Fixed: Application updates should now work correctly in the Tools tab when clicking on Check for Updates",
+    )
     "1.26" = @(
         "Added: SteamCMD first-run: choose existing install or download official steamcmd.zip into a new SteamCMD folder",
         "Fixed: Install Server on the Install tab uses SteamCMD (app_update 4129620) when client mode is SteamCMD, not Steam file copy",
@@ -212,6 +216,8 @@ $SavesBase   = "$ServerDir\R5\Saved\SaveProfiles"
 $BackupDir   = "$ServerDir\Backups"
 $HistoryFile = "$ServerDir\player_history.txt"
 $SettingsFile = "$ServerDir\manager_settings.json"
+$script:ClientSettingsFile = Join-Path $PSScriptRoot "windrose_client_settings.json"
+$script:SelfScriptPath = if ($PSCommandPath) { $PSCommandPath } else { Join-Path $PSScriptRoot "Windrose-Server-Manager.ps1" }
 if (-not (Test-Path $BackupDir)) { New-Item $BackupDir -ItemType Directory -Force | Out-Null }
 $script:InstallClient = "Steam"
 $script:SteamInstallRoot = $null
@@ -863,6 +869,16 @@ function Set-ServerRoot($rootPath) {
                 <TextBlock x:Name="TxtUpdateStatus" Text="" Foreground="#8DA4B5" FontSize="11" TextWrapping="Wrap"/>
               </StackPanel>
             </Border>
+            <TextBlock Text="Hosting Client" Style="{StaticResource SectionHead}"/>
+            <Border Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
+              <StackPanel>
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                  <TextBlock x:Name="TxtClientMode" Text="Current mode: Steam" Foreground="#8DA4B5" FontSize="11" VerticalAlignment="Center" Margin="0,0,16,0"/>
+                  <Button x:Name="BtnSwitchClient" Content="Switch Client Mode" Background="#2A3E55" Style="{StaticResource SmallBtn}"/>
+                </StackPanel>
+                <TextBlock Text="Use this to switch between Steam and SteamCMD setup without deleting settings." Foreground="#8DA4B5" FontSize="11" TextWrapping="Wrap"/>
+              </StackPanel>
+            </Border>
             <TextBlock Text="Backup" Style="{StaticResource SectionHead}"/>
             <Border Background="#111E2A" BorderBrush="#1E3348" BorderThickness="1" CornerRadius="6" Padding="12" Margin="0,0,0,10">
               <StackPanel>
@@ -1239,6 +1255,8 @@ $BtnCheckUpdate  = Ctrl 'BtnCheckUpdate'
 $BtnUpdate       = Ctrl 'BtnUpdate'
 $BtnPatchNotes   = Ctrl 'BtnPatchNotes'
 $TxtUpdateStatus = Ctrl 'TxtUpdateStatus'
+$TxtClientMode   = Ctrl 'TxtClientMode'
+$BtnSwitchClient = Ctrl 'BtnSwitchClient'
 $DotInstall      = Ctrl 'DotInstall'
 $TxtInstallStatus= Ctrl 'TxtInstallStatus'
 $LblSteamSource  = Ctrl 'LblSteamSource'
@@ -1572,7 +1590,7 @@ function Find-SteamWindrose {
 
 function Prompt-SelectInstallClient {
     $pick = Show-ManagerMessageBox `
-        "Which client are you using for Windrose server files?`n`nYes = Steam`nNo = SteamCMD`nCancel = Skip setup" `
+        "Which client are you using to host your Windrose server?`n`nYes = Steam`nNo = SteamCMD`nCancel = Skip setup" `
         "Choose Client Type" "YesNoCancel" "Question"
     if ($pick -eq "Yes") { return "Steam" }
     if ($pick -eq "No")  { return "SteamCMD" }
@@ -1671,10 +1689,40 @@ function Find-AnyWindroseServer {
     return $null
 }
 
-function Read-InstallClientSettings {
-    if (-not (Test-Path $SettingsFile)) { return $false }
+function Save-InstallClientSettings {
     try {
-        $s = Get-Content $SettingsFile -Raw | ConvertFrom-Json
+        $settings = [ordered]@{
+            InstallClientChoiceSaved = ($script:InstallClientChoiceSaved -eq $true)
+            InstallClient            = $script:InstallClient
+            SteamInstallRoot         = $script:SteamInstallRoot
+            SteamCmdInstallRoot      = $script:SteamCmdInstallRoot
+            SteamCmdForceInstallDir  = $script:SteamCmdForceInstallDir
+        }
+        $settings | ConvertTo-Json | Set-Content -LiteralPath $script:ClientSettingsFile -Encoding UTF8
+        Sync-SteamCmdForceInstallDirSidecar
+    } catch {}
+}
+
+function Read-InstallClientSettings {
+    if (-not (Test-Path $script:ClientSettingsFile)) {
+        if (Test-Path $SettingsFile) {
+            try {
+                $legacy = Get-Content -LiteralPath $SettingsFile -Raw | ConvertFrom-Json
+                if ($legacy.InstallClientChoiceSaved -eq $true -and $legacy.InstallClient) {
+                    $script:InstallClient = [string]$legacy.InstallClient
+                    $script:InstallClientChoiceSaved = $true
+                    if ($legacy.SteamInstallRoot) { $script:SteamInstallRoot = $legacy.SteamInstallRoot.TrimEnd('\') }
+                    if ($legacy.SteamCmdInstallRoot) { $script:SteamCmdInstallRoot = $legacy.SteamCmdInstallRoot.TrimEnd('\') }
+                    if ($legacy.SteamCmdForceInstallDir) { $script:SteamCmdForceInstallDir = $legacy.SteamCmdForceInstallDir.TrimEnd('\') }
+                    Save-InstallClientSettings
+                    return $true
+                }
+            } catch {}
+        }
+        return $false
+    }
+    try {
+        $s = Get-Content -LiteralPath $script:ClientSettingsFile -Raw | ConvertFrom-Json
         if ($s.InstallClientChoiceSaved -ne $true) { return $false }
         if ($s.InstallClient -eq "SteamCMD") {
             $script:InstallClient = "SteamCMD"
@@ -1708,6 +1756,7 @@ function Initialize-InstallAndServerLocations {
         if ($selectedClient) {
             $script:InstallClient = $selectedClient
             $script:InstallClientChoiceSaved = $true
+            Save-InstallClientSettings
         } else {
             # Cancel: use Steam for this session only; ask again next launch
             $script:InstallClient = "Steam"
@@ -1731,12 +1780,12 @@ function Initialize-InstallAndServerLocations {
                 "SteamCMD Setup" "YesNo" "Question"
             if ($steamCmdSetup -eq "Yes") {
                 $manualSteamCmd = Prompt-ForFolder "Select your SteamCMD install folder (contains steamcmd.exe)"
-                if ($manualSteamCmd) { $script:SteamCmdInstallRoot = $manualSteamCmd }
+                if ($manualSteamCmd) { $script:SteamCmdInstallRoot = $manualSteamCmd; Save-InstallClientSettings }
             } elseif ($steamCmdSetup -eq "No") {
                 $parentForSteamCmd = Prompt-ForFolder "Where would you like SteamCMD installed?"
                 if ($parentForSteamCmd) {
                     $installedRoot = Install-SteamCmdFromOfficialZip -ParentDirectory $parentForSteamCmd
-                    if ($installedRoot) { $script:SteamCmdInstallRoot = $installedRoot }
+                    if ($installedRoot) { $script:SteamCmdInstallRoot = $installedRoot; Save-InstallClientSettings }
                 }
             }
         }
@@ -2098,6 +2147,7 @@ function Update-SetupWizard {
     } else {
         $LblSteamSource.Text = "Steam Source"
     }
+    $TxtClientMode.Text = "Current mode: $($script:InstallClient)"
 
     $steamFound  = ($null -ne (Find-SteamWindrose -Client $script:InstallClient)) -or (Test-Path $ServerExe)
     $serverReady = Test-Path $ServerExe
@@ -2169,6 +2219,37 @@ function Update-SetupWizard {
     } else {
         $StepBadge5.Background = $cGray; $StepBadgeTxt5.Text = "5"
     }
+}
+
+function Start-SelfUpdateReplaceAndRestart {
+    param(
+        [Parameter(Mandatory)][string]$NewScriptContent,
+        [Parameter(Mandatory)][string]$TargetScriptPath
+    )
+    $tempRoot = Join-Path $env:TEMP ("WindroseUpdate_" + [guid]::NewGuid().ToString("N"))
+    New-Item -ItemType Directory -Path $tempRoot -Force | Out-Null
+    $newFile = Join-Path $tempRoot "Windrose-Server-Manager.ps1.new"
+    $updater = Join-Path $tempRoot "apply_update.ps1"
+    [System.IO.File]::WriteAllText($newFile, $NewScriptContent, [System.Text.Encoding]::UTF8)
+    $updaterContent = @"
+param([int]`$PidToWait, [string]`$SourcePath, [string]`$TargetPath)
+for (`$i=0; `$i -lt 120; `$i++) {
+    if (-not (Get-Process -Id `$PidToWait -ErrorAction SilentlyContinue)) { break }
+    Start-Sleep -Milliseconds 500
+}
+Copy-Item -LiteralPath `$SourcePath -Destination `$TargetPath -Force
+Start-Process powershell -ArgumentList @('-NoProfile','-ExecutionPolicy','Bypass','-File',`$TargetPath)
+Start-Sleep -Milliseconds 300
+Remove-Item -LiteralPath `$SourcePath -Force -ErrorAction SilentlyContinue
+Remove-Item -LiteralPath `$PSCommandPath -Force -ErrorAction SilentlyContinue
+"@
+    [System.IO.File]::WriteAllText($updater, $updaterContent, [System.Text.Encoding]::UTF8)
+    Start-Process powershell -WindowStyle Hidden -ArgumentList @(
+        "-NoProfile","-ExecutionPolicy","Bypass","-File",$updater,
+        "-PidToWait",$PID,
+        "-SourcePath",$newFile,
+        "-TargetPath",$TargetScriptPath
+    ) | Out-Null
 }
 
 function Set-UIRunning {
@@ -2778,18 +2859,43 @@ $BtnUpdate.Add_Click({
             return
         }
         try {
-            $dest = "$ServerDir\Windrose-Server-Manager.ps1"
-            [System.IO.File]::WriteAllText($dest, $content, [System.Text.Encoding]::UTF8)
+            Start-SelfUpdateReplaceAndRestart -NewScriptContent $content -TargetScriptPath $script:SelfScriptPath
             $BtnUpdate.Visibility = "Collapsed"
-            $TxtUpdateStatus.Text = "Updated to version $($script:latestVersion). Close and relaunch to apply."
+            $TxtUpdateStatus.Text = "Update downloaded. App will restart to apply version $($script:latestVersion)."
             $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::LightGreen
-            Log "App updated to $($script:latestVersion) -- restart to apply."
+            Log "App update staged for restart to $($script:latestVersion)."
+            $Window.Close()
         } catch {
-            $TxtUpdateStatus.Text = "Failed to write file: $_"
+            $TxtUpdateStatus.Text = "Failed to apply update: $_"
             $TxtUpdateStatus.Foreground = [System.Windows.Media.Brushes]::Tomato
         }
     })
     $script:updateDownloadTimer.Start()
+})
+
+$BtnSwitchClient.Add_Click({
+    $pick = Show-ManagerMessageBox `
+        "Switch hosting client mode?`n`nYes = Steam`nNo = SteamCMD`nCancel = Keep current mode" `
+        "Switch Client Mode" "YesNoCancel" "Question"
+    if ($pick -eq "Cancel") { return }
+    if ($pick -eq "Yes") {
+        $script:InstallClient = "Steam"
+        if (-not $script:SteamInstallRoot) { $script:SteamInstallRoot = Get-SteamInstallRoot }
+        if (-not $script:SteamInstallRoot) {
+            $manualSteam = Prompt-ForFolder "Select your Steam install folder (contains steam.exe)"
+            if ($manualSteam) { $script:SteamInstallRoot = $manualSteam }
+        }
+    } elseif ($pick -eq "No") {
+        $script:InstallClient = "SteamCMD"
+        if (-not $script:SteamCmdInstallRoot) { $script:SteamCmdInstallRoot = Get-SteamCmdInstallRoot }
+        if (-not $script:SteamCmdInstallRoot) {
+            $manualSteamCmd = Prompt-ForFolder "Select your SteamCMD install folder (contains steamcmd.exe)"
+            if ($manualSteamCmd) { $script:SteamCmdInstallRoot = $manualSteamCmd }
+        }
+    }
+    $script:InstallClientChoiceSaved = $true
+    Save-InstallClientSettings
+    Update-SetupWizard
 })
 
 $BtnPatchNotes.Add_Click({
