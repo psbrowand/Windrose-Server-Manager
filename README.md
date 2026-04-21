@@ -38,7 +38,7 @@ A local GUI application for running and managing a [Windrose](https://store.stea
 - .NET Framework 4.5 or later (pre-installed on Windows 10+)
 - **Windrose** owned and installed via Steam or SteamCMD (App ID 3041230)
 
-> The dedicated server files are bundled inside the Windrose game instal if using Steam. You do not need a separate dedicated server download.
+> The dedicated server files are bundled inside the base Windrose game if using Steam. You do not need a separate dedicated server download.
 
 ---
 
