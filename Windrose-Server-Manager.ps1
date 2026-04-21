@@ -96,7 +96,7 @@ $UpdateUrl   = "https://raw.githubusercontent.com/Andrew1175/Windrose-Server-Man
 $PatchNotes = [ordered]@{
     "1.27" = @(
         "Fixed: Launch settings were not being saved correctly leading to being asked about which server hosting client you were using every time the app was launched.",
-        "Fixed: Application updates should now work correctly in the Tools tab when clicking on Check for Updates",
+        "Fixed: Application updates should now work correctly in the Tools tab when clicking on Check for Updates"
     )
     "1.26" = @(
         "Added: SteamCMD first-run: choose existing install or download official steamcmd.zip into a new SteamCMD folder",
