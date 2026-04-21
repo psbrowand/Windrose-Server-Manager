@@ -12,7 +12,7 @@ A local GUI application for running and managing a [Windrose](https://store.stea
 
 ## Features
 
-- **Steam and SteamCMD support** - You will be asked which method you are using upon first launch
+- **Steam and SteamCMD support** - You will be asked which method you want to use upon first launch with the ability to switch between the two in the settings.
 - **One-click Start / Stop / Restart** with configurable countdown warning before restart
 - **Live dashboard** — CPU usage, RAM, player count, uptime, and connected player list
 - **Live log viewer** — color-coded, filterable (All / Players / Warnings / Errors) with auto-scroll
@@ -26,7 +26,7 @@ A local GUI application for running and managing a [Windrose](https://store.stea
 - **Player history** — persistent log of who joined and left
 - **Invite code share** — copies a ready-to-send message to clipboard
 - **Self-updater** — checks GitHub for new versions and updates in-place
-- **Install wizard** — 5-step setup that auto-detects Windrose in your Steam library and installs the dedicated server
+- **Install wizard** — A Guide that will walk you through the server setup process whether using Steam or SteamCMD
 - **Patch notes** — built-in version history viewable from the Tools tab
 
 ---
@@ -76,7 +76,7 @@ A local GUI application for running and managing a [Windrose](https://store.stea
 | **Console** | Send console commands to the running server, with quick-access buttons and live output |
 | **Tools** | Manual and auto backup, scheduled restart, restart countdown, player history, patch notes |
 | **Update** | Check for new versions and update the manager from GitHub |
-| **Install** | 5-step wizard to detect and copy server files from your Steam installation |
+| **Install** | Information to detect Steam/SteamCMD and server files |
 
 ---
 
