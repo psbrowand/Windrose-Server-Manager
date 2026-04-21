@@ -42,23 +42,27 @@ A local GUI application for running and managing a [Windrose](https://store.stea
 
 ---
 
-## Quick Start
+## How to Run
 
-### First time (new machine)
+### Steam Usage
 
-1. **Install Windrose** from Steam or SteamCMD and let it fully download.
+1. **Install Windrose** on Steam and let it fully download.
 2. **Download this repository** — click *Code > Download ZIP* on GitHub and extract it, or clone it:
    ```
    git clone https://github.com/Andrew1175/Windrose-Server-Manager.git "C:\Game-Servers\Windrose"
    ```
-3. **Run `Launch.vbs`** — double-click it. The app opens with no terminal windows. The app opens to the **Install** tab automatically.
-4. Click **Auto-Detect** to find your Windrose Steam installation.
-5. Click **Install Server** — the server files (~2.8 GB) are copied to the manager folder.
-6. Switch to the **Dashboard** tab and click **Start**.
+3. **Run `Launch.vbs`** — double-click it. You will be asked a few questions. Be sure to follow the prompts for Steam and NOT SteamCMD.
+4. Switch to the **Dashboard** tab and click **Start**.
 
-### Already have server files
+### SteamCMD Usage
 
-If you already set up a Windrose server in this folder, just run `Launch.vbs` and you are ready to go.
+1. **Download this repository** — click *Code > Download ZIP* on GitHub and extract it, or clone it:
+   ```
+   git clone https://github.com/Andrew1175/Windrose-Server-Manager.git "C:\Game-Servers\Windrose"
+   ```
+2. **Run `Launch.vbs`** — double-click it. You will be asked a few questions. Be sure to follow the prompts for SteamCMD and NOT Steam.
+3. Follow the steps to download SteamCMD and the server files. The application will guide you and do this automatically.
+4. Switch to the **Dashboard** tab and click **Start**.
 
 ---
 
