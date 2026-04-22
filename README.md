@@ -1,4 +1,6 @@
-THIS IS NOT IN DEVELOPMENT ANYMORE. Please use the following: https://github.com/Andrew1175/Windrose-Server-Manager-Enhanced
+THIS IS NOT IN DEVELOPMENT ANYMORE.
+
+Please use the following: https://github.com/Andrew1175/Windrose-Server-Manager-Enhanced
 
 # Windrose Server Manager
 
