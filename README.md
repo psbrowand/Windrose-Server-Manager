@@ -1,3 +1,7 @@
+THIS IS NOT IN DEVELOPMENT ANYMORE.
+
+Please use the following: https://github.com/Andrew1175/Windrose-Server-Manager-Enhanced
+
 # Windrose Server Manager
 
 A local GUI application for running and managing a [Windrose](https://store.steampowered.com/app/3041230/Windrose/) dedicated server on Windows.
@@ -8,6 +12,7 @@ A local GUI application for running and managing a [Windrose](https://store.stea
 
 ## Features
 
+- **Steam and SteamCMD support** - You will be asked which method you want to use upon first launch with the ability to switch between the two in the settings.
 - **One-click Start / Stop / Restart** with configurable countdown warning before restart
 - **Live dashboard** — CPU usage, RAM, player count, uptime, and connected player list
 - **Live log viewer** — color-coded, filterable (All / Players / Warnings / Errors) with auto-scroll
@@ -21,7 +26,7 @@ A local GUI application for running and managing a [Windrose](https://store.stea
 - **Player history** — persistent log of who joined and left
 - **Invite code share** — copies a ready-to-send message to clipboard
 - **Self-updater** — checks GitHub for new versions and updates in-place
-- **Install wizard** — 5-step setup that auto-detects Windrose in your Steam library and installs the dedicated server
+- **Install wizard** — A Guide that will walk you through the server setup process whether using Steam or SteamCMD
 - **Patch notes** — built-in version history viewable from the Tools tab
 
 ---
@@ -31,29 +36,33 @@ A local GUI application for running and managing a [Windrose](https://store.stea
 - Windows 10 or Windows 11
 - PowerShell 5.1 (built into Windows — no install needed)
 - .NET Framework 4.5 or later (pre-installed on Windows 10+)
-- **Windrose** owned and installed via Steam (App ID 3041230)
+- **Windrose** owned and installed via Steam or SteamCMD (App ID 3041230)
 
-> The dedicated server files are bundled inside the Windrose game install. You do not need a separate dedicated server download.
+> The dedicated server files are bundled inside the base Windrose game if using Steam. You do not need a separate dedicated server download.
 
 ---
 
-## Quick Start
+## How to Run
 
-### First time (new machine)
+### Steam Usage
 
-1. **Install Windrose** from Steam and let it fully download.
+1. **Install Windrose** on Steam and let it fully download.
 2. **Download this repository** — click *Code > Download ZIP* on GitHub and extract it, or clone it:
    ```
-   git clone https://github.com/psbrowand/Windrose-Server-Manager.git "C:\Game-Servers\Windrose"
+   git clone https://github.com/Andrew1175/Windrose-Server-Manager.git "C:\Game-Servers\Windrose"
    ```
-3. **Run `Launch.vbs`** — double-click it. The app opens with no terminal windows. The app opens to the **Install** tab automatically.
-4. Click **Auto-Detect** to find your Windrose Steam installation.
-5. Click **Install Server** — the server files (~2.8 GB) are copied to the manager folder.
-6. Switch to the **Dashboard** tab and click **Start**.
+3. **Run `Launch.vbs`** — double-click it. You will be asked a few questions. Be sure to follow the prompts for Steam and NOT SteamCMD.
+4. Switch to the **Dashboard** tab and click **Start**.
 
-### Already have server files
+### SteamCMD Usage
 
-If you already set up a Windrose server in this folder, just run `Launch.vbs` and you are ready to go.
+1. **Download this repository** — click *Code > Download ZIP* on GitHub and extract it, or clone it:
+   ```
+   git clone https://github.com/Andrew1175/Windrose-Server-Manager.git "C:\Game-Servers\Windrose"
+   ```
+2. **Run `Launch.vbs`** — double-click it. You will be asked a few questions. Be sure to follow the prompts for SteamCMD and NOT Steam.
+3. Follow the steps to download SteamCMD and the server files. The application will guide you and do this automatically.
+4. Switch to the **Dashboard** tab and click **Start**.
 
 ---
 
@@ -67,7 +76,7 @@ If you already set up a Windrose server in this folder, just run `Launch.vbs` an
 | **Console** | Send console commands to the running server, with quick-access buttons and live output |
 | **Tools** | Manual and auto backup, scheduled restart, restart countdown, player history, patch notes |
 | **Update** | Check for new versions and update the manager from GitHub |
-| **Install** | 5-step wizard to detect and copy server files from your Steam installation |
+| **Install** | Information to detect Steam/SteamCMD and server files |
 
 ---
 
